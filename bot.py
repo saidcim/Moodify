@@ -45,3 +45,49 @@ os.makedirs(DATA_DIR, exist_ok=True)
 HISTORY_FILE_PREFIX = "playlist_history_cycle_"
 STATE_FILE = os.path.join(DATA_DIR, "bot_state.json")
 DASHBOARD_FILE = os.path.join(DATA_DIR, "dashboard_state.json")
+
+
+def history_file_for_cycle(cycle: int) -> str:
+    return os.path.join(DATA_DIR, f"{HISTORY_FILE_PREFIX}{int(cycle):03d}.xlsx")
+
+
+def _latest_history_file() -> str | None:
+    files = glob.glob(os.path.join(DATA_DIR, f"{HISTORY_FILE_PREFIX}*.xlsx"))
+    if not files:
+        return None
+
+    def _cycle_num(p):
+        try:
+            return int(os.path.basename(p)[len(HISTORY_FILE_PREFIX):-len(".xlsx")])
+        except ValueError:
+            return -1
+
+    return max(files, key=_cycle_num)
+
+
+ARCHIVE_LIMIT = 50
+USER_NOTE_WINDOW = 3
+USER_NOTE_MAX_CHARS = 200
+
+GROQ_MODEL_CHAIN = [m for m in [
+    os.environ.get("GROQ_MODEL", ""),
+    "openai/gpt-oss-120b",
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-20b",
+    "llama-3.1-8b-instant",
+] if m]
+_ACTIVE_GROQ_MODEL: str | None = None
+
+GROQ_TPM_BUDGET = int(os.environ.get("GROQ_TPM_BUDGET", "7000"))
+_GROQ_USAGE: list = []
+
+DEFAULT_CARRY_OVER = 5
+CARRY_OVER_MIN, CARRY_OVER_MAX = 0, 10
+CARRY_OVER_FLOOR = 2
+CARRY_TUNE_DEADBAND = 0.10
+
+is_running = False
+STATE_LOCK = threading.Lock()
+
+AFFINITY_DECAY = 0.95
+AFFINITY_PRUNE_BELOW = 0.05
