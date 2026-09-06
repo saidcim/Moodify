@@ -604,3 +604,128 @@ def tune_dynamic_config(state: dict, play_counts: dict, current_track_ids: list)
     )
     log.info(f"Dynamic config: {dyn['tune_reason']}")
     return dyn
+
+
+def _parse_ai_json(raw: str) -> dict:
+    raw = (raw or "").strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        start = raw.find("{")
+        if start == -1:
+            raise
+        depth, in_str, esc = 0, False, False
+        for i, ch in enumerate(raw[start:], start):
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return json.loads(raw[start:i + 1])
+        raise
+
+
+def _compact_tracks(tracks: list, limit: int) -> list:
+    return [f'{t.get("name", "?")} - {t.get("artist", "?")}' for t in tracks[:limit]]
+
+
+def _compact_artists(artists: list, limit: int) -> list:
+    return [{"name": a.get("name", "?"), "genres": (a.get("genres") or [])[:2]}
+            for a in artists[:limit]]
+
+
+def _compact_archive(archive: list) -> list:
+    return [{"cycle": a.get("cycle"), "mood": a.get("mood"),
+             "engagement": a.get("engagement_score"), "avg_plays": a.get("avg_plays"),
+             "carry": a.get("carry_over_count"), "discovery": a.get("discovery_count")}
+            for a in archive]
+
+
+def _model_extra_body(model: str) -> dict:
+    if model.startswith("openai/gpt-oss"):
+        return {"reasoning_effort": "low", "include_reasoning": False}
+    return {}
+
+
+def _estimate_tokens(text: str) -> int:
+    return len(text) // 3 + 200
+
+
+def _pace_for_tokens(need: int):
+    if need >= GROQ_TPM_BUDGET:
+        log.warning(f"Single request exceeds the TPM budget (~{need} > {GROQ_TPM_BUDGET}); trying anyway.")
+        return
+    while True:
+        now = time.time()
+        _GROQ_USAGE[:] = [(t, n) for t, n in _GROQ_USAGE if now - t < 60]
+        used = sum(n for _, n in _GROQ_USAGE)
+        if not _GROQ_USAGE or used + need <= GROQ_TPM_BUDGET:
+            return
+        wait = max(61 - (now - _GROQ_USAGE[0][0]), 1)
+        log.info(f"Groq TPM window is full (~{used}+{need} > {GROQ_TPM_BUDGET}), waiting {wait:.0f}s.")
+        time.sleep(wait)
+
+
+def groq_json(client: Groq, prompt: str, max_tokens: int) -> dict:
+    global _ACTIVE_GROQ_MODEL
+    chain = ([_ACTIVE_GROQ_MODEL] if _ACTIVE_GROQ_MODEL else []) + \
+            [m for m in GROQ_MODEL_CHAIN if m != _ACTIVE_GROQ_MODEL]
+    est = _estimate_tokens(prompt) + max_tokens
+    last_err = None
+
+    for model in chain:
+        extra = _model_extra_body(model)
+        for force_json in (True, False):
+            kwargs = {"response_format": {"type": "json_object"}} if force_json else {}
+            if extra:
+                kwargs["extra_body"] = extra
+            try:
+                _pace_for_tokens(est)
+                resp = client.chat.completions.create(
+                    model=model, max_tokens=max_tokens,
+                    messages=[{"role": "user", "content": prompt}], **kwargs,
+                )
+                _GROQ_USAGE.append((time.time(), est))
+                choice = resp.choices[0]
+                content = (choice.message.content or "").strip()
+                if not content:
+                    reason = getattr(choice, "finish_reason", "?")
+                    log.warning(f"{model}: empty response (finish_reason={reason}), moving to the next attempt.")
+                    last_err = RuntimeError(f"{model} returned an empty response (finish_reason={reason})")
+                    continue
+                if model != _ACTIVE_GROQ_MODEL:
+                    log.info(f"Groq model: {model}")
+                    _ACTIVE_GROQ_MODEL = model
+                return _parse_ai_json(content)
+            except Exception as e:
+                msg = str(e)
+                _GROQ_USAGE.append((time.time(), est))
+                if force_json and ("json_validate_failed" in msg or "Failed to validate JSON" in msg):
+                    log.warning(f"{model}: json_object mode failed, retrying without format enforcement.")
+                    continue
+                if "model_not_found" in msg or "does not exist" in msg or "decommissioned" in msg:
+                    log.warning(f"Groq model unavailable ({model}), moving to the next one.")
+                    last_err = e
+                    break
+                raise
+        else:
+            if _ACTIVE_GROQ_MODEL == model:
+                _ACTIVE_GROQ_MODEL = None
+            log.warning(f"{model} produced no usable response, moving to the next model.")
+    raise RuntimeError(
+        f"No Groq model was usable. Tried: {chain}. Last error: {last_err}"
+    )
