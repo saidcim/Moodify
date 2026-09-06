@@ -6,17 +6,6 @@ actually listened to. Runs on GitHub Actions, no server, costs nothing.
 I used AI for multiple parts of the project, but the ideas, architectural design, and
 choices that influenced the project's progress were all my own.
 
-## Main problem
-
-An AI that picks music has no idea if you liked what it picked. Ask a model to rate its
-own playlist and it gives itself an 8 out of 10 forever.
-
-So it counts plays instead. A track carried over from last time either got played again
-or it did not, and that is not an opinion.
-
-Spotify only gives you your last 50 plays though, which over 48 hours undercounts
-badly. So a second workflow runs every hour doing nothing but adding to the counter.
-
 ## How it works
 
     every 2 days:  history -> mood -> candidates -> curator -> playlist
@@ -38,15 +27,6 @@ and stayed there for four cycles.
 Now it compares the carried tracks against the fresh ones in the same playlist. Carried
 got played more, +1. Less, -1. Floor of 2 so it cannot bottom out again. No AI call.
 
-### Two scores that must not be compared
-
-There is the model's opinion of its own playlist, and engagement, from real play counts.
-
-I mixed them once. Engagement only started at cycle 12, so the old cycles were 8/10 AI
-scores and the new ones 2-4/10 engagement scores. Improvement came out as -5.97 while
-the bot was actually getting better, and it kept writing "you are getting worse" into
-its own prompt.
-
 ### Free tier
 
 Groq allows about 8000 tokens a minute and three calls back to back blew past it, so
@@ -55,11 +35,6 @@ too, track lists are just "Title - Artist" now instead of full dictionaries.
 
 When Groq retired `llama-3.3-70b-versatile` the bot stopped dead because I had the model
 name hardcoded in three places. It walks a chain now.
-
-### Silent failure
-
-Four runs in August were green with no cycle produced. The poll was swallowing its
-exceptions, so broken auth looked exactly like success. Both commands exit non-zero now.
 
 ## Demo
 
