@@ -91,3 +91,130 @@ STATE_LOCK = threading.Lock()
 
 AFFINITY_DECAY = 0.95
 AFFINITY_PRUNE_BELOW = 0.05
+
+
+def _default_user_profile() -> dict:
+    return {
+        "version": 1,
+        "last_updated": None,
+        "learned_patterns": [],
+        "genre_affinity": {},
+        "artist_affinity": {},
+        "mood_music_map": {},
+        "next_advice": "",
+        "adaptation_metrics": {
+            "cycles_completed": 0,
+            "score_basis": "insufficient_engagement_history",
+            "avg_score_first_3": 0.0,
+            "avg_score_last_3": 0.0,
+            "improvement_delta": 0.0,
+            "avg_ai_score_last_3": 0.0,
+            "avg_plays_trend": "0%",
+            "carry_over_success_rate": None,
+            "carry_over_measured": {},
+            "confidence": 0.0,
+        },
+    }
+
+
+def _default_dynamic_config() -> dict:
+    return {
+        "carry_over": DEFAULT_CARRY_OVER,
+        "last_tuned_cycle": 0,
+        "tune_reason": "",
+    }
+
+
+def _default_state() -> dict:
+    return {
+        "playlist_id": os.environ.get("PLAYLIST_ID", ""),
+        "last_update": None,
+        "cycle": 0,
+        "feedback_history": [],
+        "mood_history": [],
+        "playlist_archive": [],
+        "user_profile": _default_user_profile(),
+        "dynamic_config": _default_dynamic_config(),
+        "ai_notes": "",
+        "cumulative_plays": {},
+        "seen_play_events": [],
+        "user_notes": [],
+    }
+
+
+def _load_state_from_file(path: str) -> dict | None:
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log.warning(f"Could not read state file ({path}): {e}")
+        return None
+
+
+def _merge_state_defaults(state: dict) -> dict:
+    default = _default_state()
+    for key, val in default.items():
+        if key not in state:
+            state[key] = val
+    if "user_profile" in state:
+        profile_default = _default_user_profile()
+        for k, v in profile_default.items():
+            if k not in state["user_profile"]:
+                state["user_profile"][k] = v
+        metrics = profile_default["adaptation_metrics"]
+        for k, v in metrics.items():
+            if k not in state["user_profile"].get("adaptation_metrics", {}):
+                state["user_profile"]["adaptation_metrics"][k] = v
+
+    dyn_default = _default_dynamic_config()
+    dyn = state.get("dynamic_config") or {}
+    dyn.pop("last_recovery_cycle", None)
+    for k, v in dyn_default.items():
+        if k not in dyn:
+            dyn[k] = v
+    dyn["carry_over"] = max(CARRY_OVER_MIN, min(CARRY_OVER_MAX, int(dyn["carry_over"])))
+    dyn["carry_over"] = min(dyn["carry_over"], PLAYLIST_SIZE)
+    state["dynamic_config"] = dyn
+    return state
+
+
+def load_state() -> dict:
+    state = _load_state_from_file(STATE_FILE)
+    if state is None and STATE_FILE != "bot_state.json":
+        state = _load_state_from_file("bot_state.json")
+    if state is None:
+        log.info("No saved state found, starting clean.")
+        state = _default_state()
+    else:
+        log.info(f"State loaded (cycle #{state.get('cycle', 0)}).")
+    return _merge_state_defaults(state)
+
+
+def write_dashboard_state(state: dict):
+    try:
+        payload = {
+            "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "cycle": state.get("cycle", 0),
+            "last_update": state.get("last_update"),
+            "playlist_id": state.get("playlist_id"),
+            "is_running": False,
+            "feedback_history": state.get("feedback_history", [])[-30:],
+            "mood_history": state.get("mood_history", [])[-30:],
+            "user_profile": state.get("user_profile", {}),
+            "dynamic_config": state.get("dynamic_config", {}),
+            "cumulative_plays": state.get("cumulative_plays", {}),
+            "user_notes": state.get("user_notes", [])[-10:],
+            "playlist_archive_summary": state.get("playlist_archive", [])[-10:],
+        }
+        with open(DASHBOARD_FILE, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        log.warning(f"Could not write dashboard_state.json: {e}")
+
+
+def save_state(state: dict):
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2, ensure_ascii=False)
+    write_dashboard_state(state)
