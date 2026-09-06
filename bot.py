@@ -284,3 +284,82 @@ def save_cycle_summary_to_excel(cycle: int, mood_data: dict, score: float, track
     ])
     wb.save(path)
     log.info(f"Saved cycle summary to Excel (cycle {cycle}) -> {os.path.basename(path)}")
+
+
+    def get_spotify() -> spotipy.Spotify:
+    auth = SpotifyOAuth(
+        client_id=SPOTIFY_CLIENT_ID,
+        client_secret=SPOTIFY_CLIENT_SECRET,
+        redirect_uri=SPOTIFY_REDIRECT_URI,
+        scope=(
+            "user-read-recently-played user-top-read user-library-read "
+            "playlist-modify-public playlist-modify-private playlist-read-private"
+        ),
+    )
+    token_info = auth.refresh_access_token(SPOTIFY_REFRESH_TOKEN)
+    return spotipy.Spotify(auth=token_info["access_token"])
+
+
+def _parse_played_at(raw: str) -> datetime.datetime:
+    dt = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt
+
+
+def get_listening_data(sp: spotipy.Spotify) -> dict:
+    data = {}
+    recent = sp.current_user_recently_played(limit=50)
+    recent_tracks = []
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=3)
+    for item in recent["items"]:
+        played_at = _parse_played_at(item["played_at"])
+        if played_at >= cutoff:
+            t = item["track"]
+            recent_tracks.append({
+                "id": t["id"], "name": t["name"],
+                "artist": t["artists"][0]["name"], "album": t["album"]["name"],
+                "played_at": item["played_at"],
+            })
+    data["recent_tracks"] = recent_tracks
+
+    top_short = sp.current_user_top_tracks(limit=50, time_range="short_term")
+    data["top_short"] = [{"id": t["id"], "name": t["name"], "artist": t["artists"][0]["name"],
+                          "popularity": t["popularity"]} for t in top_short["items"]]
+
+    top_medium = sp.current_user_top_tracks(limit=50, time_range="medium_term")
+    data["top_medium"] = [{"id": t["id"], "name": t["name"], "artist": t["artists"][0]["name"],
+                           "popularity": t["popularity"]} for t in top_medium["items"]]
+
+    top_artists = sp.current_user_top_artists(limit=20, time_range="short_term")
+    data["top_artists"] = [{"id": a["id"], "name": a["name"], "genres": a["genres"],
+                            "popularity": a.get("popularity", 0)} for a in top_artists["items"]]
+
+    saved = sp.current_user_saved_tracks(limit=50)
+    data["saved_tracks"] = [{"id": item["track"]["id"], "name": item["track"]["name"],
+                             "artist": item["track"]["artists"][0]["name"]} for item in saved["items"]]
+
+    return data
+
+
+def get_playlist_play_counts(playlist_track_ids, recent_tracks):
+    counts = {tid: 0 for tid in playlist_track_ids}
+    for t in recent_tracks:
+        if t["id"] in counts:
+            counts[t["id"]] += 1
+    return counts
+
+
+def build_listening_fingerprint(listening_data: dict) -> dict:
+    genres = []
+    for a in listening_data.get("top_artists", [])[:10]:
+        genres.extend(a.get("genres", [])[:3])
+    genre_counts: dict[str, int] = {}
+    for g in genres:
+        genre_counts[g] = genre_counts.get(g, 0) + 1
+    top_genres = sorted(genre_counts, key=genre_counts.get, reverse=True)[:5]
+    return {
+        "top_artists": [a["name"] for a in listening_data.get("top_artists", [])[:8]],
+        "top_genres": top_genres,
+        "track_count_3d": len(listening_data.get("recent_tracks", [])),
+    }
