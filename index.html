@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moodify</title>
+  <style>
+    :root {
+      --bg: #21242c;
+      --bg2: #1c1f26;
+      --green: #1DB954;
+      --green-soft: #2ee06b;
+      --green-glow: rgba(29,185,84,0.14);
+      --blue: #5aa7ff;
+      --purple: #a78bfa;
+      --yellow: #f5c04a;
+      --red: #ef7070;
+      --text: #e9ebf1;
+      --text2: #9aa1b0;
+      --text3: #616876;
+      --hl: rgba(255,255,255,0.045);
+      --sh: rgba(0,0,0,0.55);
+      --r: 18px;
+      --out: -8px -8px 16px var(--hl), 8px 8px 16px var(--sh);
+      --out-sm: -4px -4px 9px var(--hl), 4px 4px 9px var(--sh);
+      --in: inset -4px -4px 8px var(--hl), inset 4px 4px 8px var(--sh);
+      --in-sm: inset -2px -2px 5px var(--hl), inset 2px 2px 5px var(--sh);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .header {
+      padding: 1.1rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+      background: linear-gradient(180deg, var(--bg) 75%, transparent);
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo {
+      width: 44px; height: 44px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; background: var(--bg); box-shadow: var(--out-sm);
+    }
+    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+    .status-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 30px;
+      background: var(--bg); box-shadow: var(--in-sm);
+      font-size: 12px; color: var(--text2);
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); transition: background .3s; }
+    .status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+    .status-dot.running { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse .8s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+    #setup-banner {
+      background: var(--bg); box-shadow: var(--out);
+      border-radius: var(--r); padding: 1.5rem; margin: 1.5rem 2rem;
+    }
+    #setup-banner h3 { color: var(--yellow); margin-bottom: .8rem; font-size: 14px; }
+    .setup-form { display: flex; flex-direction: column; gap: 10px; }
+    .setup-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .setup-form input {
+      flex: 1; min-width: 200px;
+      background: var(--bg); box-shadow: var(--in-sm);
+      border: none; border-radius: 12px; padding: 12px 16px;
+      color: var(--text); font-size: 13px; outline: none;
+    }
+    .setup-form input:focus { box-shadow: var(--in-sm), 0 0 0 1px var(--green); }
+
+    .btn {
+      padding: 11px 22px; border-radius: 14px; border: none;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      background: var(--bg); color: var(--text); box-shadow: var(--out-sm);
+      transition: box-shadow .12s, transform .12s, color .12s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { box-shadow: var(--in-sm); transform: translateY(0); }
+    .btn-green { color: var(--green-soft); }
+    .btn-green:disabled { color: var(--text3); cursor: not-allowed; box-shadow: var(--in-sm); transform: none; }
+    .btn-outline { font-weight: 600; color: var(--text2); }
+    .btn-outline:hover { color: var(--green-soft); }
+
+    .main { padding: 1.2rem 2rem 2.5rem; max-width: 1100px; margin: 0 auto; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+      gap: 18px; margin-bottom: 1.6rem;
+    }
+    .stat-card {
+      background: var(--bg); box-shadow: var(--out);
+      border-radius: var(--r); padding: 1.15rem 1.2rem;
+    }
+    .stat-label { font-size: 10.5px; color: var(--text3); text-transform: uppercase; letter-spacing: .9px; margin-bottom: 8px; }
+    .stat-value { font-size: 25px; font-weight: 800; letter-spacing: -1px; color: var(--green-soft); }
+    .stat-value.blue { color: var(--blue); }
+    .stat-value.purple { color: var(--purple); }
+    .stat-sub { font-size: 11.5px; color: var(--text2); margin-top: 5px; }
+
+    .panel {
+      background: var(--bg); box-shadow: var(--out);
+      border-radius: var(--r); overflow: hidden;
+    }
+    .panel-header {
+      padding: 1rem 1.3rem .6rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .panel-header h3 { font-size: 14px; font-weight: 700; }
+    .panel-hint { font-size: 11px; color: var(--text3); }
+    .panel-body { padding: .8rem 1.3rem 1.3rem; }
+
+    .trigger-section {
+      background: var(--bg); box-shadow: var(--out);
+      border-radius: var(--r); padding: 1.4rem;
+      margin-bottom: 1.6rem;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .trigger-info h3 { font-size: 15px; margin-bottom: 4px; }
+    .trigger-info p { font-size: 13px; color: var(--text2); }
+    #trigger-btn { padding: 13px 28px; font-size: 14px; min-width: 180px; }
+    .trigger-result {
+      font-size: 13px; margin-top: 10px; padding: 9px 14px;
+      border-radius: 12px; display: none; box-shadow: var(--in-sm);
+    }
+    .trigger-result.success { color: var(--green-soft); }
+    .trigger-result.error { color: var(--red); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 1.6rem; }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+    .well {
+      background: var(--bg); box-shadow: var(--in-sm);
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .mood-list, .feedback-list { display: flex; flex-direction: column; gap: 12px; max-height: 380px; overflow-y: auto; padding: 4px; }
+    .mood-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+    .mood-emoji { font-size: 20px; }
+    .mood-name { font-size: 14px; font-weight: 700; }
+    .mood-date { font-size: 11px; color: var(--text3); margin-left: auto; }
+    .mood-summary { font-size: 12px; color: var(--text2); line-height: 1.55; margin-bottom: 7px; }
+    .mood-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+    .chip {
+      padding: 3px 10px; border-radius: 20px; font-size: 11px;
+      color: var(--text2); box-shadow: var(--in-sm); background: var(--bg);
+    }
+    .chip.green { color: var(--green-soft); }
+    .chip.blue { color: var(--blue); }
+    .chip.purple { color: var(--purple); }
+    .chip.yellow { color: var(--yellow); }
+
+    .feedback-top { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+    .cycle-badge {
+      padding: 3px 11px; border-radius: 20px; font-size: 11px; font-weight: 800;
+      color: var(--green-soft); box-shadow: var(--in-sm);
+    }
+    .score-bar-wrap { flex: 1; border-radius: 6px; height: 9px; overflow: hidden; box-shadow: var(--in-sm); background: var(--bg2); }
+    .score-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green), var(--green-soft)); transition: width .6s; }
+    .score-bar.eng { background: linear-gradient(90deg, #3a7bd5, var(--blue)); }
+    .score-num { font-size: 12px; font-weight: 800; color: var(--green-soft); min-width: 30px; text-align: right; }
+    .score-num.blue { color: var(--blue); }
+    .feedback-analysis { font-size: 12px; color: var(--text2); line-height: 1.55; }
+    .feedback-meta { font-size: 11px; color: var(--text3); margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .empty { text-align: center; padding: 2rem 1rem; color: var(--text3); font-size: 13px; }
+    .empty-icon { font-size: 30px; margin-bottom: 8px; }
+    .loading { text-align: center; padding: 2rem; color: var(--text3); font-size: 13px; }
+    .spinner {
+      width: 20px; height: 20px; border: 2px solid var(--bg2);
+      border-top-color: var(--green); border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 0 auto 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .playlist-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--green-soft); font-size: 13px; text-decoration: none;
+      padding: 8px 16px; border-radius: 20px;
+      box-shadow: var(--out-sm); transition: all .15s;
+    }
+    .playlist-link:active { box-shadow: var(--in-sm); }
+
+    .pattern-list { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
+    .pattern-item {
+      background: var(--bg); box-shadow: var(--in-sm);
+      border-radius: 12px; padding: 11px 14px; font-size: 12px;
+      color: var(--text2); line-height: 1.55;
+      border-left: 3px solid var(--green);
+    }
+    .adapt-badge {
+      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+      color: var(--green-soft); box-shadow: var(--in-sm);
+    }
+
+    .strategy-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+    .strategy-item {
+      flex: 1; min-width: 130px;
+      background: var(--bg); box-shadow: var(--in-sm);
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .strategy-item .k { font-size: 10.5px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; }
+    .strategy-item .v { font-size: 19px; font-weight: 800; margin-top: 3px; }
+    .strategy-item .v.green { color: var(--green-soft); }
+    .strategy-item .v.purple { color: var(--purple); }
+    .strategy-item .v.blue { color: var(--blue); }
+    .strategy-reason { font-size: 11.5px; color: var(--text2); margin-top: 10px; line-height: 1.5; }
+
+    .score-chart { width: 100%; height: 70px; margin-top: 6px; }
+    .chart-legend { display: flex; gap: 14px; font-size: 11px; color: var(--text2); margin-top: 6px; }
+    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+
+    .archive-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .archive-table th {
+      text-align: left; padding: 8px 6px; color: var(--text3);
+      font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .archive-table td { padding: 8px 6px; color: var(--text2); border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .archive-table tr:last-child td { border-bottom: none; }
+    .archive-wrap { max-height: 300px; overflow-y: auto; }
+    .td-disc { color: var(--purple); font-weight: 700; }
+    .td-eng { color: var(--blue); font-weight: 700; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="logo">🎵</span>
+    <div>
+      <h1>Moodify</h1>
+      <div class="header-sub">AI-powered dynamic playlist manager</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Connecting...</span>
+  </div>
+</div>
+
+<div id="setup-banner">
+  <h3>⚙️ Configure Bot Connection</h3>
+  <div class="setup-form">
+    <div class="setup-row">
+      <input type="url" id="bot-url" placeholder="Bot URL (e.g. https://xyz.railway.app)" />
+      <input type="password" id="api-secret" placeholder="API secret" />
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn btn-green" onclick="saveConfig()">Connect</button>
+      <span id="connect-msg" style="font-size:12px;color:var(--text2)"></span>
+    </div>
+  </div>
+</div>
+
+<div class="main" id="main-content" style="display:none">
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Cycles</div>
+      <div class="stat-value" id="stat-cycle">—</div>
+      <div class="stat-sub">updates</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Update</div>
+      <div class="stat-value" id="stat-last" style="font-size:15px;margin-top:4px">—</div>
+      <div class="stat-sub" id="stat-last-relative">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Current Mood</div>
+      <div class="stat-value" id="stat-mood" style="font-size:19px;margin-top:4px">—</div>
+      <div class="stat-sub" id="stat-energy">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">AI Score</div>
+      <div class="stat-value" id="stat-score">—</div>
+      <div class="stat-sub">/ 10 · AI self-assessment</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Real Score</div>
+      <div class="stat-value blue" id="stat-engagement">—</div>
+      <div class="stat-sub">/ 10 · from listening data</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Discovery</div>
+      <div class="stat-value purple" id="stat-discovery">—</div>
+      <div class="stat-sub" id="stat-discovery-sub">new tracks / playlist</div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:1.6rem" id="score-trend-panel" hidden>
+    <div class="panel-header"><h3>📈 Score Trend</h3><span class="panel-hint">AI score vs real listening score</span></div>
+    <div class="panel-body">
+      <svg class="score-chart" id="score-chart" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+      <div class="chart-legend">
+        <span><span class="legend-dot" style="background:var(--green)"></span>AI score</span>
+        <span><span class="legend-dot" style="background:var(--blue)"></span>Real score (engagement)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="trigger-section">
+    <div class="trigger-info">
+      <h3>🔄 Manual Update</h3>
+      <p>Refresh the playlist now without waiting 2 days. The bot analyses your listening history and picks new tracks.</p>
+      <textarea id="user-note" maxlength="500" rows="2"
+                placeholder="Your request (optional): e.g. &quot;that was too gloomy, make the next one more upbeat&quot;"
+                style="width:100%;max-width:520px;margin-top:10px;padding:9px 11px;border-radius:8px;
+                       border:1px solid #333;background:#111;color:#eee;font-size:13px;
+                       font-family:inherit;resize:vertical;"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;
+                  max-width:520px;margin-top:4px;">
+        <span style="font-size:11px;color:#888;">This request reaches the curator as the highest priority signal.</span>
+        <span id="note-count" style="font-size:11px;color:#888;">0/500</span>
+      </div>
+      <div id="past-notes" style="margin-top:10px;max-width:520px;"></div>
+      <div class="trigger-result" id="trigger-result"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="token-toggle" onclick="toggleTokenRow()" title="GitHub token setting"
+                style="background:none;border:1px solid #333;color:#888;border-radius:6px;
+                       padding:6px 10px;cursor:pointer;font-size:12px;">🔑</button>
+        <button class="btn btn-green" id="trigger-btn" onclick="triggerCycle()">▶ Update Now</button>
+      </div>
+      <div id="token-row" style="display:none;flex-direction:column;gap:6px;align-items:flex-end;">
+        <input type="password" id="gh-token" placeholder="github_pat_..." autocomplete="off"
+               style="padding:7px 10px;border-radius:6px;border:1px solid #333;background:#111;
+                      color:#eee;font-size:12px;width:260px;" />
+        <div style="display:flex;gap:6px;">
+          <button onclick="saveToken()" style="padding:6px 12px;border-radius:6px;border:none;
+                  background:#1db954;color:#000;cursor:pointer;font-size:12px;">Save</button>
+          <button onclick="clearToken()" style="padding:6px 12px;border-radius:6px;border:1px solid #333;
+                  background:none;color:#888;cursor:pointer;font-size:12px;">Delete</button>
+        </div>
+        <div style="font-size:11px;color:#888;max-width:280px;text-align:right;line-height:1.5">
+          Fine-grained PAT &middot; only <b>your repository</b> &middot;
+          a single permission <b>Actions: Read and write</b>.<br>
+          The token is stored only in this browser, never written into the page source.
+        </div>
+      </div>
+      <a href="#" id="playlist-link" class="playlist-link" target="_blank" style="display:none">🎵 Open Playlist</a>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:1.6rem">
+    <div class="panel-header">
+      <h3>🎛️ Bot Strategy</h3>
+      <span class="panel-hint">Tunes itself from listening data</span>
+    </div>
+    <div class="panel-body">
+      <div class="strategy-row">
+        <div class="strategy-item">
+          <div class="k">Carry-over Limit</div>
+          <div class="v green" id="strat-carry">—</div>
+          <div class="stat-sub">old tracks / cycle</div>
+        </div>
+        <div class="strategy-item">
+          <div class="k">Discovery Quota</div>
+          <div class="v purple" id="strat-discovery">—</div>
+          <div class="stat-sub">never-played tracks</div>
+        </div>
+        <div class="strategy-item">
+          <div class="k">Play Counter</div>
+          <div class="v blue" id="strat-plays">—</div>
+          <div class="stat-sub">plays collected this cycle</div>
+        </div>
+      </div>
+      <div class="strategy-reason" id="strat-reason"></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>😌 Mood History</h3>
+        <span class="panel-hint">Last 3 days of listening analysis</span>
+      </div>
+      <div class="panel-body">
+        <div class="mood-list" id="mood-list">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>📊 Playlist History</h3>
+        <span class="panel-hint">AI score &amp; real score</span>
+      </div>
+      <div class="panel-body">
+        <div class="feedback-list" id="feedback-list">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>🧠 Bot Learnings</h3>
+        <span class="adapt-badge" id="adapt-badge">—</span>
+      </div>
+      <div class="panel-body">
+        <div class="pattern-list" id="pattern-list">
+          <div class="empty"><div class="empty-icon">🔍</div>The bot has not collected learning data yet.<br>Patterns will appear here after 3-4 cycles.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>📁 Playlist Archive</h3>
+        <button class="btn btn-outline" style="padding:7px 14px;font-size:11px" onclick="downloadExcel()">⬇ Download Excel</button>
+      </div>
+      <div class="panel-body">
+        <div class="archive-wrap" id="archive-wrap">
+          <div class="empty"><div class="empty-icon">📂</div>No archive yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let refreshTimer = null;
+
+  const GIST_ID = 'your_gist_id_here';
+  const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
+  const STATE_FILE = 'bot_state.json';
+
+  const BOT_REPO = 'your-username/moodify';
+  const BOT_REPO_URL = `https://github.com/${BOT_REPO}`;
+  const WORKFLOW_FILE = 'cycle.yml';
+  const WORKFLOW_REF = 'main';
+
+  const TOKEN_KEY = 'gh_token';
+  const getToken = () => localStorage.getItem(TOKEN_KEY) || '';
+
+  function normalizeBotUrl(raw) {
+    if (!raw) return '';
+    let url = raw.trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    return url;
+  }
+
+  function getBotUrlInfo(url) {
+    try {
+      const normalized = normalizeBotUrl(url);
+      const u = new URL(normalized);
+      return { valid: true, host: u.hostname, origin: u.origin, normalized };
+    } catch {
+      return { valid: false, host: 'invalid-url', origin: '', normalized: '' };
+    }
+  }
+
+  function loadConfig() {
+    document.getElementById('user-note')?.addEventListener('input', updateNoteCount);
+    document.getElementById('setup-banner').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+    fetchStatus();
+    refreshTimer = setInterval(fetchStatus, 120000);
+  }
+
+  function isLikelyFrontendUrl(url) {
+    const info = getBotUrlInfo(url);
+    if (!info.valid) return false;
+    if (info.origin === window.location.origin) return true;
+    if (info.host.includes('vercel.app')) return true;
+    return false;
+  }
+
+  function saveConfig() {
+    loadConfig();
+  }
+
+  async function fetchState() {
+    const res = await fetch(GIST_API, {
+      headers: { 'Accept': 'application/vnd.github+json' },
+      cache: 'no-store'
+    });
+    if (!res.ok) throw new Error(`Gist HTTP ${res.status}`);
+    const gist = await res.json();
+    const file = gist.files && gist.files[STATE_FILE];
+    if (!file) throw new Error(`${STATE_FILE} was not found in the gist`);
+    let content = file.content;
+    if (file.truncated && file.raw_url) {
+      const raw = await fetch(file.raw_url, { cache: 'no-store' });
+      if (!raw.ok) throw new Error('could not read raw_url');
+      content = await raw.text();
+    }
+    return JSON.parse(content);
+  }
+
+  async function fetchStatus() {
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    try {
+      const state = await fetchState();
+      const data = {
+        cycle: state.cycle || 0,
+        last_update: state.last_update || null,
+        playlist_id: state.playlist_id || '',
+        is_running: false,
+        user_notes: state.user_notes || [],
+        feedback_history: state.feedback_history || [],
+        mood_history: state.mood_history || [],
+        user_profile: state.user_profile || {},
+        dynamic_config: state.dynamic_config || {},
+        cumulative_plays: state.cumulative_plays || {},
+        playlist_archive_summary: state.playlist_archive || []
+      };
+      renderStatus(data);
+      dot.className = 'status-dot online';
+      statusText.textContent = 'Online';
+    } catch (e) {
+      dot.className = 'status-dot';
+      statusText.textContent = 'Connection error';
+      console.error(e);
+    }
+  }
+
+  function renderStatus(data) {
+    document.getElementById('stat-cycle').textContent = data.cycle || 0;
+    renderPastNotes(data.user_notes);
+
+    if (data.last_update) {
+      const d = new Date(data.last_update);
+      document.getElementById('stat-last').textContent = d.toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      document.getElementById('stat-last-relative').textContent = timeAgo(d);
+    }
+
+    const moods = data.mood_history || [];
+    if (moods.length > 0) {
+      const last = moods[moods.length - 1];
+      document.getElementById('stat-mood').textContent = `${last.mood_emoji || ''} ${last.mood || '—'}`;
+      document.getElementById('stat-energy').textContent = `Energy: ${last.energy_level || '—'}`;
+    }
+
+    const feedbacks = data.feedback_history || [];
+    if (feedbacks.length > 0) {
+      const last = feedbacks[feedbacks.length - 1];
+      document.getElementById('stat-score').textContent = last.score?.toFixed(1) || '—';
+      document.getElementById('stat-engagement').textContent =
+        (last.engagement_score !== undefined && last.engagement_score !== null)
+          ? last.engagement_score.toFixed(1) : '—';
+    }
+
+    const archive = data.playlist_archive_summary || [];
+    const lastA = archive[archive.length - 1] || {};
+    if (lastA.discovery_count !== undefined) {
+      document.getElementById('stat-discovery').textContent = lastA.discovery_count;
+      document.getElementById('stat-discovery-sub').textContent = 'new tracks in this playlist';
+    }
+
+    const dyn = data.dynamic_config || {};
+    if (dyn.carry_over !== undefined) {
+      document.getElementById('strat-carry').textContent = dyn.carry_over;
+    }
+    document.getElementById('strat-discovery').textContent =
+      lastA.discovery_count !== undefined ? lastA.discovery_count : '—';
+    const cum = data.cumulative_plays;
+    document.getElementById('strat-plays').textContent =
+      cum ? Object.values(cum).reduce((a, b) => a + b, 0) : '—';
+    document.getElementById('strat-reason').textContent =
+      dyn.tune_reason ? `💬 Last tuning reason: ${dyn.tune_reason}` : '';
+
+    if (data.playlist_id) {
+      const link = document.getElementById('playlist-link');
+      link.href = `https://open.spotify.com/playlist/${data.playlist_id}`;
+      link.style.display = 'inline-flex';
+    }
+
+    renderMoodHistory(moods.slice().reverse());
+    renderFeedbackHistory(feedbacks.slice().reverse());
+
+    const profile = data.user_profile || {};
+    const metrics = profile.adaptation_metrics || {};
+    const improvement = metrics.improvement_delta;
+    const confidence = metrics.confidence;
+    if (improvement !== undefined && data.cycle > 0) {
+      document.getElementById('adapt-badge').textContent =
+        `Confidence ${Math.round((confidence || 0) * 100)}% · Improvement ${improvement >= 0 ? '+' : ''}${improvement.toFixed(1)}`;
+    }
+
+    renderPatterns(profile.learned_patterns || [], profile.next_advice || '');
+    renderArchive(archive);
+    renderScoreChart(feedbacks);
+  }
+
+  function renderPatterns(patterns, advice) {
+    const el = document.getElementById('pattern-list');
+    if (!patterns.length && !advice) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>The bot has not collected learning data yet.<br>Patterns will appear here after 3-4 cycles.</div>`;
+      return;
+    }
+    let html = patterns.map(p => `<div class="pattern-item">${p}</div>`).join('');
+    if (advice) html += `<div class="pattern-item" style="border-left-color:var(--yellow)">💡 ${advice}</div>`;
+    el.innerHTML = html;
+  }
+
+  function renderArchive(archive) {
+    const el = document.getElementById('archive-wrap');
+    if (!archive.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📂</div>No archive yet.</div>`;
+      return;
+    }
+    const rows = archive.slice().reverse().map(a => `
+      <tr>
+        <td>#${a.cycle}</td>
+        <td>${formatDate(a.archived_at)}</td>
+        <td>${a.mood || '—'}</td>
+        <td>${a.score?.toFixed(1) || '—'}</td>
+        <td class="td-eng">${(a.engagement_score !== undefined && a.engagement_score !== null) ? a.engagement_score.toFixed(1) : '—'}</td>
+        <td class="td-disc">${a.discovery_count !== undefined ? a.discovery_count : '—'}</td>
+        <td>${a.avg_plays?.toFixed(1) || 0}</td>
+      </tr>
+    `).join('');
+    el.innerHTML = `<table class="archive-table">
+      <thead><tr><th>Cycle</th><th>Date</th><th>Mood</th><th>AI</th><th>Real</th><th>Discovery</th><th>Avg Plays</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  function renderScoreChart(feedbacks) {
+    const panel = document.getElementById('score-trend-panel');
+    const svg = document.getElementById('score-chart');
+    if (!feedbacks || feedbacks.length < 2) { panel.hidden = true; return; }
+    panel.hidden = false;
+
+    const w = 300, h = 70, pad = 10;
+    const aiVals = feedbacks.map(f => (f.score !== undefined ? f.score : null));
+    const engVals = feedbacks.map(f => (f.engagement_score !== undefined ? f.engagement_score : null));
+    const allVals = aiVals.concat(engVals).filter(s => s != null);
+    if (!allVals.length) { panel.hidden = true; return; }
+    const min = Math.min(...allVals) - 0.5;
+    const max = Math.max(...allVals) + 0.5;
+    const range = max - min || 1;
+    const n = feedbacks.length;
+    const xAt = i => pad + (i / Math.max(n - 1, 1)) * (w - 2 * pad);
+    const yAt = s => h - pad - ((s - min) / range) * (h - 2 * pad);
+
+    const line = (vals, color) => {
+      const pts = [];
+      vals.forEach((s, i) => { if (s != null) pts.push(`${xAt(i)},${yAt(s)}`); });
+      if (pts.length < 2) return '';
+      const dots = vals.map((s, i) => s != null ? `<circle cx="${xAt(i)}" cy="${yAt(s)}" r="3" fill="${color}"/>` : '').join('');
+      return `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>${dots}`;
+    };
+
+    svg.innerHTML = line(aiVals, '#1DB954') + line(engVals, '#5aa7ff');
+  }
+
+  function downloadExcel() {
+    if (!BOT_REPO_URL) {
+      alert('Excel history now lives in the bot repository. Set BOT_REPO_URL in the panel.');
+      return;
+    }
+    window.open(BOT_REPO_URL, '_blank');
+  }
+
+  function renderMoodHistory(moods) {
+    const el = document.getElementById('mood-list');
+    if (!moods.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">😶</div>No mood data yet.<br>It will appear here after the first cycle.</div>`;
+      return;
+    }
+    el.innerHTML = moods.map(m => `
+      <div class="well">
+        <div class="mood-top">
+          <span class="mood-emoji">${m.mood_emoji || '🎵'}</span>
+          <span class="mood-name">${m.mood || '—'}</span>
+          <span class="chip ${m.energy_level === 'high' ? 'green' : m.energy_level === 'low' ? 'blue' : 'yellow'}">${m.energy_level || 'medium'}</span>
+          <span class="mood-date">${formatDate(m.date)} · ${m.trigger || 'Automatic'}</span>
+        </div>
+        <div class="mood-summary">${m.summary || ''}</div>
+        <div class="mood-tags">
+          ${(m.dominant_genres || []).map(g => `<span class="chip">${g}</span>`).join('')}
+          ${(m.top_artists_this_period || []).map(a => `<span class="chip green">${a}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderFeedbackHistory(feedbacks) {
+    const el = document.getElementById('feedback-list');
+    if (!feedbacks.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>No playlist history yet.<br>It will appear after the first update.</div>`;
+      return;
+    }
+    el.innerHTML = feedbacks.map(f => {
+      const hasEng = f.engagement_score !== undefined && f.engagement_score !== null;
+      return `
+      <div class="well">
+        <div class="feedback-top">
+          <span class="cycle-badge">#${f.cycle}</span>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${(f.score/10)*100}%"></div></div>
+          <span class="score-num">${f.score?.toFixed(1)}</span>
+        </div>
+        ${hasEng ? `
+        <div class="feedback-top" style="margin-top:-2px">
+          <span class="chip blue" style="font-size:10px">real</span>
+          <div class="score-bar-wrap"><div class="score-bar eng" style="width:${(f.engagement_score/10)*100}%"></div></div>
+          <span class="score-num blue">${f.engagement_score.toFixed(1)}</span>
+        </div>` : ''}
+        <div class="feedback-analysis">${f.analysis || '—'}</div>
+        <div class="feedback-meta">
+          <span>Avg plays: ${f.avg_plays?.toFixed(1) || 0}</span>
+          <span>${formatDate(f.date)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function toggleTokenRow() {
+    const row = document.getElementById('token-row');
+    const open = row.style.display !== 'none';
+    row.style.display = open ? 'none' : 'flex';
+    if (!open) document.getElementById('gh-token').value = getToken();
+  }
+
+  function saveToken() {
+    const val = document.getElementById('gh-token').value.trim();
+    if (!val) return;
+    localStorage.setItem(TOKEN_KEY, val);
+    document.getElementById('token-row').style.display = 'none';
+    showTrigger('success', '✅ Token saved. You can now start a cycle from the panel.');
+  }
+
+  function clearToken() {
+    localStorage.removeItem(TOKEN_KEY);
+    document.getElementById('gh-token').value = '';
+    document.getElementById('token-row').style.display = 'none';
+    showTrigger('success', 'ℹ️ Token deleted. The button will open the GitHub Actions page again.');
+  }
+
+  function updateNoteCount() {
+    const el = document.getElementById('user-note');
+    const out = document.getElementById('note-count');
+    if (el && out) out.textContent = `${el.value.length}/500`;
+  }
+
+  function renderPastNotes(notes) {
+    const wrap = document.getElementById('past-notes');
+    if (!wrap) return;
+    const recent = (notes || []).slice(-3).reverse();
+    if (!recent.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML =
+      '<div style="font-size:11px;color:#888;margin-bottom:5px;">Your recent requests (the curator still takes these into account):</div>' +
+      recent.map(n => `
+        <div style="font-size:12px;color:#bbb;background:#111;border-left:2px solid #1db954;
+                    padding:6px 10px;border-radius:0 6px 6px 0;margin-bottom:4px;">
+          <span style="color:#666;">#${n.cycle}</span> ${escapeHtml(String(n.note || '').slice(0, 200))}
+        </div>`).join('');
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function showTrigger(kind, text) {
+    const result = document.getElementById('trigger-result');
+    result.className = `trigger-result ${kind}`;
+    result.textContent = text;
+    result.style.display = 'block';
+  }
+
+  function ghHeaders(token) {
+    return {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json'
+    };
+  }
+
+  async function triggerCycle() {
+    const token = getToken();
+    const btn = document.getElementById('trigger-btn');
+
+    if (!token) {
+      window.open(`${BOT_REPO_URL}/actions/workflows/${WORKFLOW_FILE}`, '_blank');
+      showTrigger('success', 'ℹ️ GitHub Actions opened; start it with "Run workflow" ' +
+                             '(you can type your request in the box there too). ' +
+                             'Add a token with 🔑 to make this button work directly.');
+      return;
+    }
+
+    const oldLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Starting...';
+    showTrigger('success', '⏳ Triggering the cycle...');
+
+    try {
+      const noteEl = document.getElementById('user-note');
+      const note = (noteEl?.value || '').trim().slice(0, 500);
+      const body = { ref: WORKFLOW_REF };
+      if (note) body.inputs = { user_note: note };
+
+      const res = await fetch(
+        `https://api.github.com/repos/${BOT_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
+        { method: 'POST', headers: ghHeaders(token), body: JSON.stringify(body) }
+      );
+
+      if (res.status === 401 || res.status === 403) {
+        showTrigger('error', '⚠️ The token is invalid or unauthorised. A fine-grained PAT needs ' +
+                             '"Actions: Read and write" on this repository.');
+        return;
+      }
+      if (res.status !== 204) {
+        const body = await res.text();
+        showTrigger('error', `⚠️ Could not trigger (HTTP ${res.status}). ${body.slice(0, 160)}`);
+        return;
+      }
+
+      btn.textContent = '⏳ Running...';
+      if (noteEl) { noteEl.value = ''; updateNoteCount(); }
+      showTrigger('success', note
+        ? `✅ Cycle started, your request was sent: "${note.slice(0, 60)}${note.length > 60 ? '…' : ''}"`
+        : '✅ Cycle started. It takes about 1-2 minutes and the result will show up here.');
+      await watchRun(token);
+    } catch (e) {
+      showTrigger('error', `⚠️ Network error: ${e.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = oldLabel;
+    }
+  }
+
+  async function watchRun(token) {
+    const deadline = Date.now() + 5 * 60 * 1000;
+
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 5000));
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/${BOT_REPO}/actions/workflows/${WORKFLOW_FILE}/runs?per_page=1`,
+          { headers: ghHeaders(token), cache: 'no-store' }
+        );
+        if (!res.ok) continue;
+        const data = await res.json();
+        const run = (data.workflow_runs || [])[0];
+        if (!run) continue;
+
+        if (run.status === 'completed') {
+          if (run.conclusion === 'success') {
+            showTrigger('success', '✅ Cycle completed. Playlist updated, refreshing the panel...');
+            setTimeout(fetchStatus, 2000);
+          } else {
+            showTrigger('error',
+              `⚠️ The cycle failed (${run.conclusion}). Details: ${run.html_url}`);
+          }
+          return;
+        }
+      } catch (e) { }
+    }
+    showTrigger('success', 'ℹ️ The cycle is still running. The panel refreshes itself every 2 minutes.');
+  }
+
+  function timeAgo(date) {
+    const diff = Math.floor((Date.now() - date) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff/60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)} hours ago`;
+    return `${Math.floor(diff/86400)} days ago`;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  }
+
+  loadConfig();
+</script>
+</body>
+</html>

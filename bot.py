@@ -33,6 +33,7 @@ def _require_env(name: str) -> str:
 SPOTIFY_CLIENT_ID = _require_env("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = _require_env("SPOTIFY_CLIENT_SECRET")
 SPOTIFY_REDIRECT_URI = os.environ.get("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:5000/callback")
+SPOTIFY_MARKET = os.environ.get("SPOTIFY_MARKET", "US")
 SPOTIFY_REFRESH_TOKEN = _require_env("SPOTIFY_REFRESH_TOKEN")
 GROQ_API_KEY = _require_env("GROQ_API_KEY")
 USER_NOTE = os.environ.get("USER_NOTE", "").strip()[:500]
@@ -286,7 +287,7 @@ def save_cycle_summary_to_excel(cycle: int, mood_data: dict, score: float, track
     log.info(f"Saved cycle summary to Excel (cycle {cycle}) -> {os.path.basename(path)}")
 
 
-    def get_spotify() -> spotipy.Spotify:
+def get_spotify() -> spotipy.Spotify:
     auth = SpotifyOAuth(
         client_id=SPOTIFY_CLIENT_ID,
         client_secret=SPOTIFY_CLIENT_SECRET,
@@ -424,7 +425,7 @@ def build_discovery_candidates(sp, listening_data, known_ids: set, state: dict) 
         if not artist.get("id"):
             continue
         try:
-            tt = sp.artist_top_tracks(artist["id"], country="TR")
+            tt = sp.artist_top_tracks(artist["id"], country=SPOTIFY_MARKET)
             added = 0
             for t in tt.get("tracks", []):
                 if t.get("id") and t["id"] not in seen:
@@ -448,7 +449,7 @@ def build_discovery_candidates(sp, listening_data, known_ids: set, state: dict) 
                 if a["name"].lower() in known_artist_names or not (30 <= pop <= 70):
                     continue
                 try:
-                    tt = sp.artist_top_tracks(a["id"], country="TR")
+                    tt = sp.artist_top_tracks(a["id"], country=SPOTIFY_MARKET)
                 except Exception:
                     continue
                 added = 0
@@ -964,3 +965,233 @@ JSON ONLY:
              f"Total: {len(track_ids)}")
     return (track_ids, parsed.get("notes", ""), float(parsed.get("score", 5.0)),
             parsed.get("analysis", ""), mood_data, carry_used_ids, discovery_used_ids)
+
+
+def run_cycle(manual=False):
+    global is_running
+    if is_running:
+        log.warning("Already running.")
+        return {"status": "already_running"}
+    is_running = True
+    STATE_LOCK.acquire()
+    trigger = "Manual" if manual else "Automatic"
+    log.info(f"=========== Cycle Starting ({trigger}) ===========")
+
+    try:
+        state = load_state()
+        sp = get_spotify()
+
+        playlist_id = find_or_create_playlist(sp, state)
+        state["playlist_id"] = playlist_id
+        save_state(state)
+
+        current_tracks = []
+        if state.get("last_update"):
+            try:
+                items = sp.playlist_items(playlist_id, fields="items(track(id,name,artists,album))")
+                for item in items["items"]:
+                    t = item["track"]
+                    if t and t.get("id"):
+                        current_tracks.append({
+                            "id": t["id"], "name": t["name"],
+                            "artist": t["artists"][0]["name"], "album": t["album"]["name"],
+                        })
+            except Exception as e:
+                log.warning(f"Could not read playlist: {e}")
+
+        listening_data = get_listening_data(sp)
+        fingerprint = build_listening_fingerprint(listening_data)
+
+        play_counts = {}
+        avg_plays = 0.0
+        current_ids_for_ai = [t["id"] for t in current_tracks]
+        if current_tracks:
+            window_counts = get_playlist_play_counts(current_ids_for_ai, listening_data["recent_tracks"])
+            cumulative = state.get("cumulative_plays", {})
+            play_counts = {tid: max(window_counts.get(tid, 0), cumulative.get(tid, 0))
+                           for tid in current_ids_for_ai}
+            avg_plays = sum(play_counts.values()) / max(len(play_counts), 1)
+
+        if USER_NOTE:
+            state.setdefault("user_notes", []).append({
+                "cycle": state.get("cycle", 0) + 1,
+                "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "note": USER_NOTE,
+            })
+            state["user_notes"] = state["user_notes"][-10:]
+            log.info(f"User request received: {USER_NOTE[:80]}")
+
+        analyze_patterns(state, listening_data, play_counts, current_ids_for_ai)
+
+        groq_client = Groq(api_key=GROQ_API_KEY)
+        state["user_profile"] = synthesize_user_profile(state, listening_data, groq_client)
+        state["dynamic_config"] = tune_dynamic_config(state, play_counts, current_ids_for_ai)
+
+        candidates_map = {}
+        for t in (listening_data["top_short"] + listening_data["top_medium"] +
+                  listening_data["saved_tracks"] + listening_data["recent_tracks"]):
+            if t.get("id") and t["id"] not in candidates_map:
+                candidates_map[t["id"]] = {"id": t["id"], "name": t.get("name", "?"),
+                                           "artist": t.get("artist", "?")}
+        candidates = list(candidates_map.values())
+
+        known_ids = set(candidates_map) | set(current_ids_for_ai)
+        try:
+            discovery_candidates = build_discovery_candidates(sp, listening_data, known_ids, state)
+        except Exception as e:
+            log.warning(f"Could not build discovery candidates: {e}")
+            discovery_candidates = []
+
+        (new_track_ids, ai_notes, score, analysis, mood_data,
+         carry_used_ids, discovery_used_ids) = ai_analyze_and_build(
+            listening_data, play_counts, state, candidates, discovery_candidates, current_ids_for_ai,
+        )
+        carry_count = len(carry_used_ids)
+
+        engagement_score = None
+        if current_tracks:
+            played_ratio = len([c for c in play_counts.values() if c > 0]) / max(len(play_counts), 1)
+            engagement_score = round(10 * (0.6 * played_ratio + 0.4 * min(avg_plays / 3.0, 1.0)), 1)
+
+        completed_cycle = state["cycle"] + 1
+        cycle_file = history_file_for_cycle(completed_cycle)
+
+        archiving_cycle = state["cycle"]
+        old_score = state["feedback_history"][-1]["score"] if state.get("feedback_history") else None
+        if current_tracks:
+            save_to_excel(current_tracks, archiving_cycle, old_score, play_counts, history_file=cycle_file)
+
+        update_playlist(sp, playlist_id, new_track_ids)
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        state["cycle"] += 1
+        state["last_update"] = now
+        state["ai_notes"] = ai_notes
+
+        top_played = sorted(
+            [{"id": tid, "name": next((t["name"] for t in current_tracks if t["id"] == tid), tid),
+              "plays": c} for tid, c in play_counts.items() if c > 0],
+            key=lambda x: x["plays"], reverse=True,
+        )[:5]
+
+        archive_entry = {
+            "cycle": state["cycle"],
+            "archived_at": now,
+            "score": score,
+            "avg_plays": round(avg_plays, 2),
+            "mood": mood_data.get("mood", ""),
+            "energy": mood_data.get("energy_level", ""),
+            "track_count": len(new_track_ids),
+            "top_played": top_played,
+            "top_artists": fingerprint["top_artists"][:5],
+            "genres": mood_data.get("dominant_genres", fingerprint["top_genres"][:5]),
+            "carry_over_count": carry_count,
+            "fresh_count": len(new_track_ids) - carry_count - len(discovery_used_ids),
+            "discovery_count": len(discovery_used_ids),
+            "discovery_ids": discovery_used_ids,
+            "carry_ids": carry_used_ids,
+            "engagement_score": engagement_score,
+            "listening_fingerprint": fingerprint,
+        }
+        if "playlist_archive" not in state:
+            state["playlist_archive"] = []
+        state["playlist_archive"].append(archive_entry)
+        state["playlist_archive"] = state["playlist_archive"][-ARCHIVE_LIMIT:]
+
+        save_cycle_summary_to_excel(
+            state["cycle"], mood_data, score, len(new_track_ids),
+            avg_plays, carry_count, analysis, history_file=cycle_file,
+        )
+
+        if "mood_history" not in state:
+            state["mood_history"] = []
+        state["mood_history"].append({"date": now, "cycle": state["cycle"],
+                                      "trigger": trigger, **mood_data})
+
+        if "feedback_history" not in state:
+            state["feedback_history"] = []
+        state["feedback_history"].append({
+            "cycle": state["cycle"], "date": now,
+            "score": score, "engagement_score": engagement_score,
+            "avg_plays": avg_plays, "analysis": analysis, "notes": ai_notes,
+        })
+
+        state["cumulative_plays"] = {}
+
+        save_state(state)
+        log.info(f"=========== Cycle #{state['cycle']} Completed ===========")
+        return {"status": "ok", "cycle": state["cycle"], "tracks": len(new_track_ids), "mood": mood_data}
+
+    except Exception as e:
+        log.error(f"Cycle error: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+    finally:
+        is_running = False
+        STATE_LOCK.release()
+
+
+def poll_recent_plays() -> bool:
+    if is_running:
+        return True
+    with STATE_LOCK:
+        try:
+            state = load_state()
+            sp = get_spotify()
+            recent = sp.current_user_recently_played(limit=50)
+        except Exception as e:
+            log.error(f"Play counter poll failed: {e}")
+            return False
+        seen = set(state.get("seen_play_events", []))
+        cum = dict(state.get("cumulative_plays", {}))
+        new_events = 0
+        for item in recent.get("items", []):
+            tid = (item.get("track") or {}).get("id")
+            if not tid:
+                continue
+            key = f'{item["played_at"]}|{tid}'
+            if key in seen:
+                continue
+            seen.add(key)
+            cum[tid] = cum.get(tid, 0) + 1
+            new_events += 1
+        if new_events:
+            state["seen_play_events"] = sorted(seen)[-300:]
+            state["cumulative_plays"] = cum
+            save_state(state)
+            log.info(f"Play counter: +{new_events} new plays (total {sum(cum.values())})")
+        else:
+            log.info("No new plays.")
+        return True
+
+
+def _hours_since_last_update(state: dict) -> float | None:
+    last = state.get("last_update")
+    if not last:
+        return None
+    try:
+        last_dt = datetime.datetime.fromisoformat(last)
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return (now - last_dt).total_seconds() / 3600
+    except Exception:
+        return None
+
+
+if __name__ == "__main__":
+    _mode = sys.argv[1].lower() if len(sys.argv) > 1 else ""
+    if _mode == "poll":
+        log.info("POLL mode.")
+        if not poll_recent_plays():
+            sys.exit(1)
+    elif _mode == "cycle":
+        log.info("CYCLE mode.")
+        _hours = _hours_since_last_update(load_state())
+        if _hours is not None:
+            log.info(f"{_hours:.1f} hours since the last update.")
+        result = run_cycle(manual=False)
+        log.info(f"Cycle result: {result}")
+        if result.get("status") != "ok":
+            sys.exit(1)
+    else:
+        sys.exit("Usage: python bot.py [poll|cycle]")

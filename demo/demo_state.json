@@ -1,0 +1,753 @@
+{
+  "playlist_id": "",
+  "last_update": "2026-09-05T06:00:00+00:00",
+  "cycle": 8,
+  "feedback_history": [
+    {
+      "cycle": 1,
+      "date": "2026-08-22T06:00:00+00:00",
+      "score": 8.0,
+      "engagement_score": 2.1,
+      "avg_plays": 0.6,
+      "analysis": "Built the core from your short-term favourites and kept the energy low. No carry-over this cycle since there was nothing to measure yet.",
+      "notes": ""
+    },
+    {
+      "cycle": 2,
+      "date": "2026-08-24T06:00:00+00:00",
+      "score": 7.5,
+      "engagement_score": 2.4,
+      "avg_plays": 0.8,
+      "analysis": "Leaned into the slower end of your listening. Added the discovery quota from artists adjacent to what you already play.",
+      "notes": ""
+    },
+    {
+      "cycle": 3,
+      "date": "2026-08-26T06:00:00+00:00",
+      "score": 8.2,
+      "engagement_score": 2.2,
+      "avg_plays": 0.7,
+      "analysis": "You skipped most of the faster tracks last cycle, so this one sits closer to the quiet material you kept returning to.",
+      "notes": ""
+    },
+    {
+      "cycle": 4,
+      "date": "2026-08-28T06:00:00+00:00",
+      "score": 7.8,
+      "engagement_score": 2.9,
+      "avg_plays": 1.1,
+      "analysis": "Carried the three tracks you replayed most and filled the rest with the same genre cluster.",
+      "notes": ""
+    },
+    {
+      "cycle": 5,
+      "date": "2026-08-30T06:00:00+00:00",
+      "score": 8.5,
+      "engagement_score": 3.1,
+      "avg_plays": 1.3,
+      "analysis": "Your afternoon sessions got longer, so this one is sequenced for uninterrupted listening rather than variety.",
+      "notes": ""
+    },
+    {
+      "cycle": 6,
+      "date": "2026-09-01T06:00:00+00:00",
+      "score": 8.0,
+      "engagement_score": 3.4,
+      "avg_plays": 1.5,
+      "analysis": "Kept the carry-over at three since familiar tracks are outperforming fresh ones. Discovery picks lean chamber pop.",
+      "notes": ""
+    },
+    {
+      "cycle": 7,
+      "date": "2026-09-03T06:00:00+00:00",
+      "score": 7.9,
+      "engagement_score": 3.6,
+      "avg_plays": 1.7,
+      "analysis": "Raised carry-over to four. The tracks you already know are doing most of the listening work right now.",
+      "notes": ""
+    },
+    {
+      "cycle": 8,
+      "date": "2026-09-05T06:00:00+00:00",
+      "score": 8.3,
+      "engagement_score": 4.1,
+      "avg_plays": 1.9,
+      "analysis": "Highest engagement so far. Held the strategy steady and only rotated the discovery slots.",
+      "notes": ""
+    }
+  ],
+  "mood_history": [
+    {
+      "date": "2026-08-22T06:00:00+00:00",
+      "cycle": 1,
+      "trigger": "Automatic",
+      "mood": "Restless",
+      "mood_emoji": "🌀",
+      "energy_level": "high",
+      "dominant_genres": [
+        "indie folk",
+        "dream pop"
+      ],
+      "top_artists_this_period": [
+        "Aurora Fields",
+        "Sable & Vine",
+        "Marchetti"
+      ],
+      "summary": "Short sessions, lots of skipping, nothing held your attention for long.",
+      "track_count": 40
+    },
+    {
+      "date": "2026-08-24T06:00:00+00:00",
+      "cycle": 2,
+      "trigger": "Automatic",
+      "mood": "Focused",
+      "mood_emoji": "🎯",
+      "energy_level": "medium",
+      "dominant_genres": [
+        "dream pop",
+        "ambient"
+      ],
+      "top_artists_this_period": [
+        "The Quiet Hours",
+        "Low Tide Club",
+        "Halcyon Drift"
+      ],
+      "summary": "Long unbroken listens in the afternoon, mostly instrumental.",
+      "track_count": 43
+    },
+    {
+      "date": "2026-08-26T06:00:00+00:00",
+      "cycle": 3,
+      "trigger": "Automatic",
+      "mood": "Nostalgic",
+      "mood_emoji": "🌊",
+      "energy_level": "low",
+      "dominant_genres": [
+        "ambient",
+        "lo-fi house"
+      ],
+      "top_artists_this_period": [
+        "Neon Harbour",
+        "Marchetti",
+        "Paper Lanterns"
+      ],
+      "summary": "You went back to older favourites and stayed there.",
+      "track_count": 46
+    },
+    {
+      "date": "2026-08-28T06:00:00+00:00",
+      "cycle": 4,
+      "trigger": "Automatic",
+      "mood": "Calm",
+      "mood_emoji": "🌙",
+      "energy_level": "low",
+      "dominant_genres": [
+        "lo-fi house",
+        "chamber pop"
+      ],
+      "top_artists_this_period": [
+        "Sable & Vine",
+        "Halcyon Drift",
+        "Aurora Fields"
+      ],
+      "summary": "Quiet evening listening, very little variation in energy.",
+      "track_count": 49
+    },
+    {
+      "date": "2026-08-30T06:00:00+00:00",
+      "cycle": 5,
+      "trigger": "Automatic",
+      "mood": "Upbeat",
+      "mood_emoji": "☀️",
+      "energy_level": "high",
+      "dominant_genres": [
+        "chamber pop",
+        "slowcore"
+      ],
+      "top_artists_this_period": [
+        "Low Tide Club",
+        "Paper Lanterns",
+        "The Quiet Hours"
+      ],
+      "summary": "Faster tempos than usual and a lot of repeat plays.",
+      "track_count": 52
+    },
+    {
+      "date": "2026-09-01T06:00:00+00:00",
+      "cycle": 6,
+      "trigger": "Manual",
+      "mood": "Focused",
+      "mood_emoji": "🎯",
+      "energy_level": "medium",
+      "dominant_genres": [
+        "slowcore"
+      ],
+      "top_artists_this_period": [
+        "Marchetti",
+        "Aurora Fields",
+        "Neon Harbour"
+      ],
+      "summary": "Steady daytime listening, few skips, narrow range of artists.",
+      "track_count": 55
+    },
+    {
+      "date": "2026-09-03T06:00:00+00:00",
+      "cycle": 7,
+      "trigger": "Automatic",
+      "mood": "Drifting",
+      "mood_emoji": "🍃",
+      "energy_level": "medium",
+      "dominant_genres": [
+        "indie folk",
+        "dream pop"
+      ],
+      "top_artists_this_period": [
+        "Halcyon Drift",
+        "The Quiet Hours",
+        "Sable & Vine"
+      ],
+      "summary": "Background listening with occasional bursts of attention.",
+      "track_count": 58
+    },
+    {
+      "date": "2026-09-05T06:00:00+00:00",
+      "cycle": 8,
+      "trigger": "Automatic",
+      "mood": "Upbeat",
+      "mood_emoji": "☀️",
+      "energy_level": "high",
+      "dominant_genres": [
+        "dream pop",
+        "ambient"
+      ],
+      "top_artists_this_period": [
+        "Paper Lanterns",
+        "Neon Harbour",
+        "Low Tide Club"
+      ],
+      "summary": "Highest play count so far, mostly newer additions.",
+      "track_count": 61
+    }
+  ],
+  "playlist_archive": [
+    {
+      "cycle": 1,
+      "archived_at": "2026-08-22T06:00:00+00:00",
+      "score": 8.0,
+      "engagement_score": 2.1,
+      "avg_plays": 0.6,
+      "mood": "Restless",
+      "energy": "high",
+      "track_count": 20,
+      "carry_over_count": 0,
+      "discovery_count": 6,
+      "fresh_count": 14,
+      "discovery_ids": [
+        "demo1d0",
+        "demo1d1",
+        "demo1d2",
+        "demo1d3",
+        "demo1d4",
+        "demo1d5"
+      ],
+      "carry_ids": [],
+      "top_played": [
+        {
+          "id": "demo1t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo1t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo1t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 2,
+      "archived_at": "2026-08-24T06:00:00+00:00",
+      "score": 7.5,
+      "engagement_score": 2.4,
+      "avg_plays": 0.8,
+      "mood": "Focused",
+      "energy": "medium",
+      "track_count": 20,
+      "carry_over_count": 2,
+      "discovery_count": 6,
+      "fresh_count": 12,
+      "discovery_ids": [
+        "demo2d0",
+        "demo2d1",
+        "demo2d2",
+        "demo2d3",
+        "demo2d4",
+        "demo2d5"
+      ],
+      "carry_ids": [
+        "demo2c0",
+        "demo2c1"
+      ],
+      "top_played": [
+        {
+          "id": "demo2t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo2t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo2t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 3,
+      "archived_at": "2026-08-26T06:00:00+00:00",
+      "score": 8.2,
+      "engagement_score": 2.2,
+      "avg_plays": 0.7,
+      "mood": "Nostalgic",
+      "energy": "low",
+      "track_count": 20,
+      "carry_over_count": 2,
+      "discovery_count": 6,
+      "fresh_count": 12,
+      "discovery_ids": [
+        "demo3d0",
+        "demo3d1",
+        "demo3d2",
+        "demo3d3",
+        "demo3d4",
+        "demo3d5"
+      ],
+      "carry_ids": [
+        "demo3c0",
+        "demo3c1"
+      ],
+      "top_played": [
+        {
+          "id": "demo3t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo3t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo3t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 4,
+      "archived_at": "2026-08-28T06:00:00+00:00",
+      "score": 7.8,
+      "engagement_score": 2.9,
+      "avg_plays": 1.1,
+      "mood": "Calm",
+      "energy": "low",
+      "track_count": 20,
+      "carry_over_count": 2,
+      "discovery_count": 6,
+      "fresh_count": 12,
+      "discovery_ids": [
+        "demo4d0",
+        "demo4d1",
+        "demo4d2",
+        "demo4d3",
+        "demo4d4",
+        "demo4d5"
+      ],
+      "carry_ids": [
+        "demo4c0",
+        "demo4c1"
+      ],
+      "top_played": [
+        {
+          "id": "demo4t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo4t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo4t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 5,
+      "archived_at": "2026-08-30T06:00:00+00:00",
+      "score": 8.5,
+      "engagement_score": 3.1,
+      "avg_plays": 1.3,
+      "mood": "Upbeat",
+      "energy": "high",
+      "track_count": 20,
+      "carry_over_count": 3,
+      "discovery_count": 6,
+      "fresh_count": 11,
+      "discovery_ids": [
+        "demo5d0",
+        "demo5d1",
+        "demo5d2",
+        "demo5d3",
+        "demo5d4",
+        "demo5d5"
+      ],
+      "carry_ids": [
+        "demo5c0",
+        "demo5c1",
+        "demo5c2"
+      ],
+      "top_played": [
+        {
+          "id": "demo5t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo5t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo5t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 6,
+      "archived_at": "2026-09-01T06:00:00+00:00",
+      "score": 8.0,
+      "engagement_score": 3.4,
+      "avg_plays": 1.5,
+      "mood": "Focused",
+      "energy": "medium",
+      "track_count": 20,
+      "carry_over_count": 3,
+      "discovery_count": 6,
+      "fresh_count": 11,
+      "discovery_ids": [
+        "demo6d0",
+        "demo6d1",
+        "demo6d2",
+        "demo6d3",
+        "demo6d4",
+        "demo6d5"
+      ],
+      "carry_ids": [
+        "demo6c0",
+        "demo6c1",
+        "demo6c2"
+      ],
+      "top_played": [
+        {
+          "id": "demo6t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo6t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo6t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 7,
+      "archived_at": "2026-09-03T06:00:00+00:00",
+      "score": 7.9,
+      "engagement_score": 3.6,
+      "avg_plays": 1.7,
+      "mood": "Drifting",
+      "energy": "medium",
+      "track_count": 20,
+      "carry_over_count": 4,
+      "discovery_count": 6,
+      "fresh_count": 10,
+      "discovery_ids": [
+        "demo7d0",
+        "demo7d1",
+        "demo7d2",
+        "demo7d3",
+        "demo7d4",
+        "demo7d5"
+      ],
+      "carry_ids": [
+        "demo7c0",
+        "demo7c1",
+        "demo7c2",
+        "demo7c3"
+      ],
+      "top_played": [
+        {
+          "id": "demo7t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo7t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo7t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    },
+    {
+      "cycle": 8,
+      "archived_at": "2026-09-05T06:00:00+00:00",
+      "score": 8.3,
+      "engagement_score": 4.1,
+      "avg_plays": 1.9,
+      "mood": "Upbeat",
+      "energy": "high",
+      "track_count": 20,
+      "carry_over_count": 4,
+      "discovery_count": 6,
+      "fresh_count": 10,
+      "discovery_ids": [
+        "demo8d0",
+        "demo8d1",
+        "demo8d2",
+        "demo8d3",
+        "demo8d4",
+        "demo8d5"
+      ],
+      "carry_ids": [
+        "demo8c0",
+        "demo8c1",
+        "demo8c2",
+        "demo8c3"
+      ],
+      "top_played": [
+        {
+          "id": "demo8t0",
+          "name": "Slow Weather",
+          "plays": 4
+        },
+        {
+          "id": "demo8t1",
+          "name": "Long Way Down",
+          "plays": 3
+        },
+        {
+          "id": "demo8t2",
+          "name": "Glass Morning",
+          "plays": 2
+        }
+      ],
+      "top_artists": [
+        "Aurora Fields",
+        "The Quiet Hours",
+        "Neon Harbour",
+        "Sable & Vine",
+        "Low Tide Club"
+      ],
+      "genres": [
+        "indie folk",
+        "dream pop",
+        "ambient"
+      ]
+    }
+  ],
+  "cumulative_plays": {
+    "demo8t0": 4,
+    "demo8t1": 3,
+    "demo8t2": 3,
+    "demo8t3": 2,
+    "demo8t4": 2,
+    "demo8t5": 2,
+    "demo8t6": 1,
+    "demo8t7": 1,
+    "demo8t8": 1,
+    "demo8t9": 1
+  },
+  "seen_play_events": [],
+  "user_notes": [
+    {
+      "cycle": 6,
+      "date": "2026-09-01T06:00:00+00:00",
+      "note": "that was too gloomy, make the next one more upbeat"
+    },
+    {
+      "cycle": 8,
+      "date": "2026-09-05T06:00:00+00:00",
+      "note": "keep the instrumental stuff, drop the vocals"
+    }
+  ],
+  "ai_notes": "Carry-over is paying off. Hold at four unless fresh tracks start winning.",
+  "dynamic_config": {
+    "carry_over": 4,
+    "last_tuned_cycle": 8,
+    "tune_reason": "carried tracks played more than fresh ones: carried 68% / fresh 41% (n=4/16) -> carry_over 3->4"
+  },
+  "user_profile": {
+    "version": 1,
+    "last_updated": "2026-09-05T06:00:00+00:00",
+    "learned_patterns": [
+      "Long listening sessions happen in the afternoon, short ones late at night.",
+      "Faster tracks get skipped unless they are already familiar.",
+      "New artists land better when they sit next to something already in rotation.",
+      "Repeats matter more than variety, average plays rise when carry-over rises.",
+      "Instrumental tracks hold attention longer than vocal ones."
+    ],
+    "genre_affinity": {
+      "indie folk": 0.9,
+      "dream pop": 0.75,
+      "ambient": 0.6,
+      "chamber pop": 0.45,
+      "lo-fi house": 0.3
+    },
+    "artist_affinity": {
+      "Aurora Fields": 0.9,
+      "The Quiet Hours": 0.78,
+      "Neon Harbour": 0.66,
+      "Sable & Vine": 0.54,
+      "Low Tide Club": 0.42
+    },
+    "mood_music_map": {
+      "Focused": [
+        "ambient",
+        "indie folk"
+      ],
+      "Upbeat": [
+        "lo-fi house",
+        "dream pop"
+      ]
+    },
+    "next_advice": "Keep discovery picks close to the existing genre cluster; unfamiliar tempo jumps are what gets skipped.",
+    "adaptation_metrics": {
+      "cycles_completed": 8,
+      "score_basis": "engagement",
+      "avg_score_first_3": 2.23,
+      "avg_score_last_3": 3.7,
+      "improvement_delta": 1.47,
+      "avg_ai_score_last_3": 8.07,
+      "avg_plays_trend": "+164%",
+      "carry_over_success_rate": 0.68,
+      "carry_over_measured": {
+        "carry_played_ratio": 0.68,
+        "fresh_played_ratio": 0.41,
+        "carry_sample": 4,
+        "fresh_sample": 16
+      },
+      "confidence": 0.72
+    }
+  }
+}
