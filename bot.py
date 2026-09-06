@@ -729,3 +729,238 @@ def groq_json(client: Groq, prompt: str, max_tokens: int) -> dict:
     raise RuntimeError(
         f"No Groq model was usable. Tried: {chain}. Last error: {last_err}"
     )
+
+
+def synthesize_user_profile(state: dict, listening_data: dict, client: Groq) -> dict:
+    profile = state.get("user_profile", _default_user_profile())
+    archive = _compact_archive(state.get("playlist_archive", [])[-4:])
+    fingerprint = build_listening_fingerprint(listening_data)
+
+    if not archive:
+        return profile
+
+    prompt = f"""You are a music taste analyst. Study the listening history and extract learned patterns.
+
+## Current Profile
+{json.dumps(profile.get("adaptation_metrics", {}), ensure_ascii=False)}
+
+## Recent Cycles
+{json.dumps(archive, ensure_ascii=False)}
+
+## Listening Summary For This Period
+{json.dumps(fingerprint, ensure_ascii=False)}
+
+## Existing Learned Patterns
+{json.dumps(profile.get("learned_patterns", [])[-5:], ensure_ascii=False)}
+
+Task: discover new patterns that describe this listener better. Keep the existing patterns and add the new ones (8 items max in total).
+
+JSON ONLY:
+{{"learned_patterns": ["pattern1", "pattern2"], "next_cycle_advice": "advice for the next cycle", "confidence": 0.72}}"""
+
+    try:
+        parsed = groq_json(client, prompt, max_tokens=500)
+        existing = profile.get("learned_patterns", [])
+        new_patterns = parsed.get("learned_patterns", [])
+        merged = list(existing)
+        for p in new_patterns:
+            if p not in merged:
+                merged.append(p)
+        profile["learned_patterns"] = merged[-8:]
+        profile["next_advice"] = parsed.get("next_cycle_advice", profile.get("next_advice", ""))
+        profile["adaptation_metrics"]["confidence"] = float(parsed.get("confidence", 0.0))
+        log.info(f"Profile synthesis: {len(profile['learned_patterns'])} patterns, "
+                 f"confidence {profile['adaptation_metrics']['confidence'] * 100:.0f}%")
+    except Exception as e:
+        log.warning(f"Profile synthesis failed: {e}")
+
+    return profile
+
+
+def analyze_mood(listening_data, client):
+    all_recent = listening_data.get("recent_tracks", [])
+    prompt = f"""You are a music psychology expert. Analyse the listener's mood from the last 3 days of listening data.
+
+## Tracks Played In The Last 3 Days
+{json.dumps(_compact_tracks(all_recent, 20), ensure_ascii=False)}
+
+## Short Term Top Tracks
+{json.dumps(_compact_tracks(listening_data.get('top_short', []), 10), ensure_ascii=False)}
+
+## Favourite Artists
+{json.dumps(_compact_artists(listening_data.get('top_artists', []), 6), ensure_ascii=False)}
+
+Return JSON ONLY:
+{{"mood": "main mood in English", "mood_emoji": "emoji", "energy_level": "low/medium/high",
+"dominant_genres": ["genre1","genre2"], "top_artists_this_period": ["artist1","artist2","artist3"],
+"summary": "2-3 sentence summary in English", "track_count": {len(all_recent)}}}"""
+
+    try:
+        return groq_json(client, prompt, max_tokens=600)
+    except Exception as e:
+        log.warning(f"Mood analysis failed: {e}")
+        return {"mood": "Unknown", "mood_emoji": "?", "energy_level": "medium",
+                "dominant_genres": [], "top_artists_this_period": [],
+                "summary": "Analysis unavailable.", "track_count": len(all_recent)}
+
+
+def _build_user_notes_block(state: dict) -> str:
+    notes = state.get("user_notes", [])[-USER_NOTE_WINDOW:]
+    if not notes:
+        return ""
+    lines = [f'- (cycle #{n.get("cycle", "?")}) {str(n.get("note", ""))[:USER_NOTE_MAX_CHARS]}'
+             for n in notes]
+    return ("\n## DIRECT USER REQUESTS - HIGHEST PRIORITY SIGNAL\n"
+            "These were written by the user. They outrank every other signal\n"
+            "(mood, history, profile); the last one is the most recent.\n"
+            + "\n".join(lines) + "\n")
+
+
+def _build_learning_context(state: dict) -> str:
+    profile = state.get("user_profile", {})
+    metrics = profile.get("adaptation_metrics", {})
+    patterns = profile.get("learned_patterns", [])[-5:]
+    advice = profile.get("next_advice", "")
+    archive_summary = _compact_archive(state.get("playlist_archive", [])[-3:])
+
+    def _top_affinity(d, n):
+        return dict(sorted(d.items(), key=lambda kv: kv[1], reverse=True)[:n])
+
+    lines = [
+        f"## User Profile (learned, cycle #{state.get('cycle', 0)})",
+        f"Genre affinity: {json.dumps(_top_affinity(profile.get('genre_affinity', {}), 8), ensure_ascii=False)}",
+        f"Artist affinity: {json.dumps(_top_affinity(profile.get('artist_affinity', {}), 6), ensure_ascii=False)}",
+        "",
+        "## Learned Patterns",
+        "\n".join(f"- {p}" for p in patterns) if patterns else "- No patterns yet",
+        "",
+        "## Past Cycle Comparison",
+        json.dumps(archive_summary, ensure_ascii=False),
+        "",
+        "## Adaptation Note",
+        (f"Confidence: {metrics.get('confidence', 0) * 100:.0f}% | "
+         f"Improvement (real listening signal): {metrics.get('improvement_delta', 0):+.1f} | "
+         f"Play trend: {metrics.get('avg_plays_trend', '0%')}"
+         if metrics.get("score_basis") == "engagement"
+         else f"Confidence: {metrics.get('confidence', 0) * 100:.0f}% | "
+              f"Improvement: not measurable yet (not enough engagement history) | "
+              f"Play trend: {metrics.get('avg_plays_trend', '0%')}"),
+        f"Advice: {advice}" if advice else "",
+    ]
+    return "\n".join(lines)
+
+
+def ai_analyze_and_build(listening_data, play_counts, state, candidates,
+                         discovery_candidates, current_track_ids=None):
+    client = Groq(api_key=GROQ_API_KEY)
+    current_track_ids = current_track_ids or []
+
+    dyn = state.get("dynamic_config", _default_dynamic_config())
+    carry_over_limit = dyn["carry_over"]
+    playlist_size = PLAYLIST_SIZE
+
+    meta = {c["id"]: c for c in candidates if c.get("id")}
+    disc_meta = {d["id"]: d for d in discovery_candidates if d.get("id")}
+    disc_ids = list(disc_meta.keys())
+
+    if current_track_ids and play_counts:
+        sorted_old = sorted(play_counts.items(), key=lambda x: x[1], reverse=True)
+        carry_over_pool = [tid for tid, count in sorted_old if count > 0][:carry_over_limit]
+        banned_ids = [tid for tid in current_track_ids if tid not in carry_over_pool]
+    else:
+        carry_over_pool = []
+        banned_ids = list(current_track_ids)
+
+    banned_set = set(banned_ids)
+    fresh_ids = [tid for tid in meta if tid not in banned_set and tid not in disc_meta]
+    log.info(f"Candidates: {len(fresh_ids)} fresh + {len(carry_over_pool)} carryable + {len(disc_ids)} discovery")
+
+    def _fmt(tid, extra=""):
+        m = meta.get(tid) or disc_meta.get(tid) or {}
+        label = f'{m.get("name", "?")} - {m.get("artist", "?")}'
+        return {"id": tid, "track": label, **({"info": extra} if extra else {})}
+
+    fresh_view = [_fmt(t) for t in fresh_ids[:35]]
+    carry_view = [{**_fmt(t), "plays": play_counts.get(t, 0)} for t in carry_over_pool]
+    disc_view = [{"id": d["id"], "track": f'{d["name"]} - {d["artist"]}', "source": d["source"]}
+                 for d in discovery_candidates[:DISCOVERY_QUOTA * 3]]
+
+    learning_context = _build_learning_context(state)
+    mood_data = analyze_mood(listening_data, client)
+    log.info(f"Mood: {mood_data.get('mood')} {mood_data.get('mood_emoji')}")
+
+    user_notes_block = _build_user_notes_block(state)
+
+    prompt = f"""You are a music curator. Pick a playlist of {playlist_size} tracks.
+{user_notes_block}
+{learning_context}
+
+Cycle #{state['cycle'] + 1}
+Mood: {json.dumps(mood_data, ensure_ascii=False)}
+Recently played: {json.dumps(_compact_tracks(listening_data['recent_tracks'], 12), ensure_ascii=False)}
+Top tracks: {json.dumps(_compact_tracks(listening_data['top_short'], 10), ensure_ascii=False)}
+Top artists: {json.dumps(_compact_artists(listening_data['top_artists'], 6), ensure_ascii=False)}
+
+## FRESH CANDIDATE TRACKS (build the core from these)
+{json.dumps(fresh_view, ensure_ascii=False)}
+
+## DISCOVERY CANDIDATES (tracks the user has never played - pick EXACTLY {DISCOVERY_QUOTA}, the ones that best fit the mood and profile)
+{json.dumps(disc_view, ensure_ascii=False)}
+
+## CARRYABLE OLD TRACKS (played a lot last period, you may keep at most {carry_over_limit})
+{json.dumps(carry_view, ensure_ascii=False)}
+
+Task:
+0. If a "DIRECT USER REQUESTS" section appears above, follow it FIRST; when the most
+   recent request conflicts with any other signal, the request wins. State in one
+   sentence how you satisfied it inside the analysis text.
+1. Choose according to the learned profile and patterns - show that you know this listener.
+2. Add EXACTLY {DISCOVERY_QUOTA} tracks from the discovery candidates (discovery quota).
+3. You may add at most {carry_over_limit} tracks from the carryable old tracks.
+4. Fill the remaining slots from the fresh candidates. Use ONLY the ids listed above.
+5. Match the mood, add variety, shuffle the order.
+
+JSON ONLY:
+{{"track_ids":["id1","id2"],"score":7.5,"analysis":"analysis in English","notes":"note for the next cycle"}}"""
+
+    parsed = groq_json(client, prompt, max_tokens=2000)
+
+    allowed = set(fresh_ids) | set(carry_over_pool) | set(disc_ids)
+    track_ids, seen = [], set()
+    for tid in parsed.get("track_ids", []):
+        if tid in allowed and tid not in seen:
+            track_ids.append(tid)
+            seen.add(tid)
+
+    carry_used = [tid for tid in track_ids if tid in carry_over_pool]
+    if len(carry_used) > carry_over_limit:
+        excess = set(carry_used[carry_over_limit:])
+        track_ids = [tid for tid in track_ids if tid not in excess]
+        log.info(f"Carry-over limit: removed {len(excess)} excess tracks")
+
+    disc_used = [tid for tid in track_ids if tid in disc_meta]
+    if len(disc_used) < DISCOVERY_QUOTA:
+        for tid in disc_ids:
+            if len(disc_used) >= DISCOVERY_QUOTA or len(track_ids) >= playlist_size:
+                break
+            if tid not in seen:
+                track_ids.append(tid)
+                seen.add(tid)
+                disc_used.append(tid)
+
+    for tid in fresh_ids:
+        if len(track_ids) >= playlist_size:
+            break
+        if tid not in seen:
+            track_ids.append(tid)
+            seen.add(tid)
+    track_ids = track_ids[:playlist_size]
+
+    carry_used_ids = [tid for tid in track_ids if tid in carry_over_pool]
+    discovery_used_ids = [tid for tid in track_ids if tid in disc_meta]
+    fresh_count = len(track_ids) - len(carry_used_ids) - len(discovery_used_ids)
+    log.info(f"AI finished. Score: {parsed.get('score')}, Fresh: {fresh_count}, "
+             f"Discovery: {len(discovery_used_ids)}, Carried: {len(carry_used_ids)}, "
+             f"Total: {len(track_ids)}")
+    return (track_ids, parsed.get("notes", ""), float(parsed.get("score", 5.0)),
+            parsed.get("analysis", ""), mood_data, carry_used_ids, discovery_used_ids)
