@@ -363,3 +363,244 @@ def build_listening_fingerprint(listening_data: dict) -> dict:
         "top_genres": top_genres,
         "track_count_3d": len(listening_data.get("recent_tracks", [])),
     }
+
+
+def find_or_create_playlist(sp: spotipy.Spotify, state: dict) -> str:
+    user_id = sp.current_user()["id"]
+    if state.get("playlist_id"):
+        try:
+            pl = sp.playlist(state["playlist_id"])
+            log.info(f"Existing playlist: {pl['name']} ({pl['id']})")
+            return state["playlist_id"]
+        except Exception:
+            log.warning("Playlist ID is invalid, searching...")
+
+    matching = []
+    offset = 0
+    while True:
+        results = sp.current_user_playlists(limit=50, offset=offset)
+        for pl in results["items"]:
+            if pl["name"] == PLAYLIST_NAME and pl["owner"]["id"] == user_id:
+                matching.append(pl)
+        if results["next"] is None:
+            break
+        offset += 50
+
+    if matching:
+        keeper = matching[0]
+        for dup in matching[1:]:
+            try:
+                sp.current_user_unfollow_playlist(dup["id"])
+                log.info(f"Duplicate removed: {dup['id']}")
+            except Exception as e:
+                log.warning(f"Could not remove duplicate: {e}")
+        return keeper["id"]
+
+    pl = sp.user_playlist_create(
+        user=user_id, name=PLAYLIST_NAME, public=False,
+        description="AI playlist refreshed every 2 days",
+    )
+    log.info(f"New playlist: {pl['id']}")
+    return pl["id"]
+
+
+def update_playlist(sp, playlist_id, track_ids):
+    sp.playlist_replace_items(playlist_id, [])
+    for i in range(0, len(track_ids), 100):
+        chunk = [f"spotify:track:{tid}" for tid in track_ids[i:i + 100]]
+        sp.playlist_add_items(playlist_id, chunk)
+    log.info(f"Playlist updated: {len(track_ids)} tracks")
+
+
+def build_discovery_candidates(sp, listening_data, known_ids: set, state: dict) -> list:
+    discoveries = []
+    seen = set(known_ids)
+    for a in state.get("playlist_archive", [])[-6:]:
+        seen.update(a.get("discovery_ids", []))
+
+    top_artists = listening_data.get("top_artists", [])
+
+    for artist in top_artists[:8]:
+        if not artist.get("id"):
+            continue
+        try:
+            tt = sp.artist_top_tracks(artist["id"], country="TR")
+            added = 0
+            for t in tt.get("tracks", []):
+                if t.get("id") and t["id"] not in seen:
+                    discoveries.append({"id": t["id"], "name": t["name"],
+                                        "artist": t["artists"][0]["name"],
+                                        "source": "known artist, unplayed track"})
+                    seen.add(t["id"])
+                    added += 1
+                if added >= 2:
+                    break
+        except Exception as e:
+            log.warning(f"artist_top_tracks failed ({artist.get('name')}): {e}")
+
+    fingerprint_genres = build_listening_fingerprint(listening_data)["top_genres"]
+    known_artist_names = {a["name"].lower() for a in top_artists}
+    for genre in fingerprint_genres[:3]:
+        try:
+            res = sp.search(q=f'genre:"{genre}"', type="artist", limit=10)
+            for a in res.get("artists", {}).get("items", []):
+                pop = a.get("popularity", 0)
+                if a["name"].lower() in known_artist_names or not (30 <= pop <= 70):
+                    continue
+                try:
+                    tt = sp.artist_top_tracks(a["id"], country="TR")
+                except Exception:
+                    continue
+                added = 0
+                for t in tt.get("tracks", []):
+                    if t.get("id") and t["id"] not in seen:
+                        discoveries.append({"id": t["id"], "name": t["name"],
+                                            "artist": a["name"],
+                                            "source": f"genre discovery: {genre}"})
+                        seen.add(t["id"])
+                        added += 1
+                    if added >= 2:
+                        break
+                known_artist_names.add(a["name"].lower())
+                if added:
+                    break
+        except Exception as e:
+            log.warning(f"Genre search failed ({genre}): {e}")
+
+    log.info(f"Discovery pool: {len(discoveries)} candidates")
+    return discoveries[:DISCOVERY_QUOTA * 3]
+
+
+def measure_carry_over_performance(state: dict, play_counts: dict,
+                                   current_track_ids: list) -> dict:
+    archive = state.get("playlist_archive", [])
+    prev_carry = (archive[-1].get("carry_ids") or []) if archive else []
+    carry_ids = [tid for tid in prev_carry if tid in play_counts]
+    carry_set = set(carry_ids)
+    fresh_ids = [tid for tid in current_track_ids if tid not in carry_set]
+
+    def _played_ratio(ids):
+        if not ids:
+            return None
+        return sum(1 for tid in ids if play_counts.get(tid, 0) > 0) / len(ids)
+
+    return {
+        "carry_played_ratio": _played_ratio(carry_ids),
+        "fresh_played_ratio": _played_ratio(fresh_ids),
+        "carry_sample": len(carry_ids),
+        "fresh_sample": len(fresh_ids),
+    }
+
+
+def analyze_patterns(state: dict, listening_data: dict, play_counts: dict,
+                     current_track_ids: list) -> dict:
+    profile = state.setdefault("user_profile", _default_user_profile())
+    archive = state.get("playlist_archive", [])
+    feedback = state.get("feedback_history", [])
+    fingerprint = build_listening_fingerprint(listening_data)
+
+    genre_affinity: dict[str, float] = dict(profile.get("genre_affinity", {}))
+    artist_affinity: dict[str, float] = dict(profile.get("artist_affinity", {}))
+    mood_music_map: dict[str, list] = dict(profile.get("mood_music_map", {}))
+
+    genre_affinity = {k: round(v * AFFINITY_DECAY, 3) for k, v in genre_affinity.items()
+                      if v * AFFINITY_DECAY >= AFFINITY_PRUNE_BELOW}
+    artist_affinity = {k: round(v * AFFINITY_DECAY, 3) for k, v in artist_affinity.items()
+                       if v * AFFINITY_DECAY >= AFFINITY_PRUNE_BELOW}
+
+    for genre in fingerprint["top_genres"]:
+        genre_affinity[genre] = min(1.0, genre_affinity.get(genre, 0.0) + 0.1)
+    for artist in fingerprint["top_artists"][:5]:
+        artist_affinity[artist] = min(1.0, artist_affinity.get(artist, 0.0) + 0.1)
+
+    if archive and feedback:
+        last_archive = archive[-1]
+        last_mood = last_archive.get("mood", "")
+        if last_mood and fingerprint["top_genres"]:
+            existing = mood_music_map.get(last_mood, [])
+            for g in fingerprint["top_genres"][:3]:
+                if g not in existing:
+                    existing.append(g)
+            mood_music_map[last_mood] = existing[:5]
+
+    carry_perf = measure_carry_over_performance(state, play_counts, current_track_ids)
+    carry_rate = carry_perf["carry_played_ratio"]
+
+    eng_scores = [f["engagement_score"] for f in feedback
+                  if f.get("engagement_score") is not None]
+    ai_scores = [f["score"] for f in feedback if f.get("score") is not None]
+
+    if len(eng_scores) >= 2:
+        series, basis = eng_scores, "engagement"
+    else:
+        series, basis = [], "insufficient_engagement_history"
+
+    avg_first_3 = sum(series[:3]) / len(series[:3]) if series else 0.0
+    avg_last_3 = sum(series[-3:]) / len(series[-3:]) if series else 0.0
+    improvement = round(avg_last_3 - avg_first_3, 2) if len(series) >= 2 else 0.0
+
+    plays_trend = "0%"
+    if len(archive) >= 2:
+        early = sum(a.get("avg_plays", 0) for a in archive[:3]) / min(3, len(archive))
+        recent = sum(a.get("avg_plays", 0) for a in archive[-3:]) / min(3, len(archive))
+        if early > 0:
+            pct = int((recent - early) / early * 100)
+            plays_trend = f"{pct:+d}%"
+
+    profile["genre_affinity"] = genre_affinity
+    profile["artist_affinity"] = artist_affinity
+    profile["mood_music_map"] = mood_music_map
+    profile["adaptation_metrics"] = {
+        "cycles_completed": state.get("cycle", 0),
+        "score_basis": basis,
+        "avg_score_first_3": round(avg_first_3, 2),
+        "avg_score_last_3": round(avg_last_3, 2),
+        "improvement_delta": improvement,
+        "avg_ai_score_last_3": round(sum(ai_scores[-3:]) / len(ai_scores[-3:]), 2) if ai_scores else 0.0,
+        "avg_plays_trend": plays_trend,
+        "carry_over_success_rate": round(carry_rate, 2) if carry_rate is not None else None,
+        "carry_over_measured": carry_perf,
+        "confidence": profile.get("adaptation_metrics", {}).get("confidence", 0.0),
+    }
+    profile["last_updated"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return profile
+
+
+def tune_dynamic_config(state: dict, play_counts: dict, current_track_ids: list) -> dict:
+    dyn = state.get("dynamic_config", _default_dynamic_config())
+    cycle_now = state.get("cycle", 0)
+    before = int(dyn.get("carry_over", DEFAULT_CARRY_OVER))
+
+    if before < CARRY_OVER_FLOOR:
+        dyn["carry_over"] = CARRY_OVER_FLOOR
+        dyn["last_tuned_cycle"] = cycle_now
+        dyn["tune_reason"] = (f"Floor correction: carry_over {before} -> {CARRY_OVER_FLOOR} "
+                              f"(a playlist cannot be 100% unfamiliar tracks).")
+        log.info(dyn["tune_reason"])
+        return dyn
+
+    perf = measure_carry_over_performance(state, play_counts, current_track_ids)
+    carry_r, fresh_r = perf["carry_played_ratio"], perf["fresh_played_ratio"]
+
+    if carry_r is None or fresh_r is None or perf["carry_sample"] < 2:
+        dyn["tune_reason"] = (f"Not enough carry-over data (n={perf['carry_sample']}), "
+                              f"keeping carry_over at {before}.")
+        log.info(dyn["tune_reason"])
+        return dyn
+
+    diff = carry_r - fresh_r
+    if diff > CARRY_TUNE_DEADBAND:
+        new_carry, why = min(before + 1, DEFAULT_CARRY_OVER), "carried tracks played more than fresh ones"
+    elif diff < -CARRY_TUNE_DEADBAND:
+        new_carry, why = max(before - 1, CARRY_OVER_FLOOR), "carried tracks played less than fresh ones"
+    else:
+        new_carry, why = before, "difference inside the deadband"
+
+    dyn["carry_over"] = new_carry
+    dyn["last_tuned_cycle"] = cycle_now
+    dyn["tune_reason"] = (
+        f"{why}: carried {carry_r * 100:.0f}% / fresh {fresh_r * 100:.0f}% "
+        f"(n={perf['carry_sample']}/{perf['fresh_sample']}) -> carry_over {before}->{new_carry}"
+    )
+    log.info(f"Dynamic config: {dyn['tune_reason']}")
+    return dyn
