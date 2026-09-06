@@ -218,3 +218,69 @@ def save_state(state: dict):
     with open(STATE_FILE, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, ensure_ascii=False)
     write_dashboard_state(state)
+
+
+TRACK_HEADERS = ["Cycle", "Date", "Time", "Spotify ID", "Track", "Artist", "Album",
+                 "AI Score", "Play Count"]
+SUMMARY_HEADERS = ["Cycle", "Datetime", "Mood", "Energy", "Score", "Track Count",
+                   "Avg Plays", "Carried Tracks", "AI Analysis Summary"]
+
+
+def _get_or_create_sheets(wb):
+    if "Tracks" in wb.sheetnames:
+        ws_tracks = wb["Tracks"]
+    else:
+        ws_tracks = wb.active
+        ws_tracks.title = "Tracks"
+    if "Cycle Summary" in wb.sheetnames:
+        ws_summary = wb["Cycle Summary"]
+    else:
+        ws_summary = wb.create_sheet("Cycle Summary")
+    if ws_tracks.max_row == 1 and ws_tracks.cell(1, 1).value is None:
+        for col, h in enumerate(TRACK_HEADERS, 1):
+            ws_tracks.cell(1, col).value = h
+    if ws_summary.max_row == 1 and ws_summary.cell(1, 1).value is None:
+        for col, h in enumerate(SUMMARY_HEADERS, 1):
+            ws_summary.cell(1, col).value = h
+    return ws_tracks, ws_summary
+
+
+def save_to_excel(tracks: list, cycle: int, score=None, play_counts: dict | None = None,
+                  history_file: str | None = None):
+    play_counts = play_counts or {}
+    path = history_file or history_file_for_cycle(cycle)
+    now = datetime.datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H:%M:%S")
+
+    wb = openpyxl.load_workbook(path) if os.path.exists(path) else openpyxl.Workbook()
+    ws_tracks, _ = _get_or_create_sheets(wb)
+
+    for track in tracks:
+        plays = play_counts.get(track["id"], 0)
+        ws_tracks.append([
+            cycle, date_str, time_str, track["id"], track["name"],
+            track["artist"], track["album"], score if score is not None else "-", plays,
+        ])
+    wb.save(path)
+    log.info(f"Saved {len(tracks)} tracks to Excel (cycle {cycle}) -> {os.path.basename(path)}")
+
+
+def save_cycle_summary_to_excel(cycle: int, mood_data: dict, score: float, track_count: int,
+                                avg_plays: float, carry_count: int, analysis: str,
+                                history_file: str | None = None):
+    path = history_file or history_file_for_cycle(cycle)
+    now = datetime.datetime.now()
+    datetime_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    wb = openpyxl.load_workbook(path) if os.path.exists(path) else openpyxl.Workbook()
+    _, ws_summary = _get_or_create_sheets(wb)
+    ws_summary.append([
+        cycle, datetime_str,
+        mood_data.get("mood", "-"),
+        mood_data.get("energy_level", "-"),
+        score, track_count, round(avg_plays, 2), carry_count,
+        (analysis or "")[:200],
+    ])
+    wb.save(path)
+    log.info(f"Saved cycle summary to Excel (cycle {cycle}) -> {os.path.basename(path)}")
