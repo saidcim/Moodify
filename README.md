@@ -1,13 +1,9 @@
 # Moodify
 
 A Spotify bot that rebuilds one playlist for me every two days, based on what I
-actually listened to. Runs on GitHub Actions, no server, costs nothing.
-
-I used AI for multiple parts of the project, but the ideas, architectural design, and
-choices that influenced the project's progress were all my own.
+actually listened to.
 
 ## How it works
-
     every 2 days:  history -> mood -> candidates -> curator -> playlist
                    then measure last cycle and tune the strategy
 
@@ -17,38 +13,11 @@ State lives in a secret Gist, not this repo, since it holds my whole listening h
 Each run pulls it at the start and pushes it at the end. That is all `gist_state.py`
 does.
 
-### The carry-over spiral
-
-Some tracks get carried over so the playlist is not all strangers. My first version
-asked an AI how many, but the code rejected every increase, so the number could only
-fall. Few plays, lower carry_over, nothing familiar left, even fewer plays. It hit zero
-and stayed there for four cycles.
-
-Now it compares the carried tracks against the fresh ones in the same playlist. Carried
-got played more, +1. Less, -1. Floor of 2 so it cannot bottom out again. No AI call.
-
-### Free tier
-
-Groq allows about 8000 tokens a minute and three calls back to back blew past it, so
-there is a rolling window that waits when a request will not fit. Prompts got smaller
-too, track lists are just "Title - Artist" now instead of full dictionaries.
-
-When Groq retired `llama-3.3-70b-versatile` the bot stopped dead because I had the model
-name hardcoded in three places. It walks a chain now.
-
 ## Demo
 
 There is a working demo in `demo/`, served straight from GitHub Pages. It runs on made
 up data in `demo_state.json`, is not wired to any Spotify account, and the buttons do
 nothing. Turn on Pages for the repo and it is at `/demo/`.
-
-## Dashboard
-
-`index.html` is a static page that reads the Gist and draws it. Cycle history, mood log,
-the strategy it settled on and why, and its own score against the real one.
-
-There is a text box on it. Whatever I type goes into the next prompt above everything
-else. "That was too gloomy, make the next one more upbeat" works.
 
 ## Setup
 

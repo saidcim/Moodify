@@ -594,3 +594,18 @@ border:3px solid #dddddd;
 border-top:3px solid #1DB954;
 margin:0px auto 6px auto;
 }
+
+.demo-note{
+background-color:#ffffcc;
+border:2px dashed #cccc66;
+padding:10px;
+font-size:12px;
+line-height:17px;
+}
+
+.demo-note code{
+background-color:#ffffff;
+border:1px solid #dddddd;
+padding:1px 4px;
+font-size:11px;
+}
