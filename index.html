@@ -4,234 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Moodify</title>
-  <style>
-    :root {
-      --bg: #21242c;
-      --bg2: #1c1f26;
-      --green: #1DB954;
-      --green-soft: #2ee06b;
-      --green-glow: rgba(29,185,84,0.14);
-      --blue: #5aa7ff;
-      --purple: #a78bfa;
-      --yellow: #f5c04a;
-      --red: #ef7070;
-      --text: #e9ebf1;
-      --text2: #9aa1b0;
-      --text3: #616876;
-      --hl: rgba(255,255,255,0.045);
-      --sh: rgba(0,0,0,0.55);
-      --r: 18px;
-      --out: -8px -8px 16px var(--hl), 8px 8px 16px var(--sh);
-      --out-sm: -4px -4px 9px var(--hl), 4px 4px 9px var(--sh);
-      --in: inset -4px -4px 8px var(--hl), inset 4px 4px 8px var(--sh);
-      --in-sm: inset -2px -2px 5px var(--hl), inset 2px 2px 5px var(--sh);
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
-
-    .header {
-      padding: 1.1rem 2rem;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 100;
-      background: linear-gradient(180deg, var(--bg) 75%, transparent);
-    }
-    .header-left { display: flex; align-items: center; gap: 14px; }
-    .logo {
-      width: 44px; height: 44px; border-radius: 14px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; background: var(--bg); box-shadow: var(--out-sm);
-    }
-    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
-    .header-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
-    .status-pill {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 16px; border-radius: 30px;
-      background: var(--bg); box-shadow: var(--in-sm);
-      font-size: 12px; color: var(--text2);
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); transition: background .3s; }
-    .status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
-    .status-dot.running { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse .8s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
-
-    #setup-banner {
-      background: var(--bg); box-shadow: var(--out);
-      border-radius: var(--r); padding: 1.5rem; margin: 1.5rem 2rem;
-    }
-    #setup-banner h3 { color: var(--yellow); margin-bottom: .8rem; font-size: 14px; }
-    .setup-form { display: flex; flex-direction: column; gap: 10px; }
-    .setup-row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .setup-form input {
-      flex: 1; min-width: 200px;
-      background: var(--bg); box-shadow: var(--in-sm);
-      border: none; border-radius: 12px; padding: 12px 16px;
-      color: var(--text); font-size: 13px; outline: none;
-    }
-    .setup-form input:focus { box-shadow: var(--in-sm), 0 0 0 1px var(--green); }
-
-    .btn {
-      padding: 11px 22px; border-radius: 14px; border: none;
-      font-size: 13px; font-weight: 700; cursor: pointer;
-      background: var(--bg); color: var(--text); box-shadow: var(--out-sm);
-      transition: box-shadow .12s, transform .12s, color .12s;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn:active { box-shadow: var(--in-sm); transform: translateY(0); }
-    .btn-green { color: var(--green-soft); }
-    .btn-green:disabled { color: var(--text3); cursor: not-allowed; box-shadow: var(--in-sm); transform: none; }
-    .btn-outline { font-weight: 600; color: var(--text2); }
-    .btn-outline:hover { color: var(--green-soft); }
-
-    .main { padding: 1.2rem 2rem 2.5rem; max-width: 1100px; margin: 0 auto; }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
-      gap: 18px; margin-bottom: 1.6rem;
-    }
-    .stat-card {
-      background: var(--bg); box-shadow: var(--out);
-      border-radius: var(--r); padding: 1.15rem 1.2rem;
-    }
-    .stat-label { font-size: 10.5px; color: var(--text3); text-transform: uppercase; letter-spacing: .9px; margin-bottom: 8px; }
-    .stat-value { font-size: 25px; font-weight: 800; letter-spacing: -1px; color: var(--green-soft); }
-    .stat-value.blue { color: var(--blue); }
-    .stat-value.purple { color: var(--purple); }
-    .stat-sub { font-size: 11.5px; color: var(--text2); margin-top: 5px; }
-
-    .panel {
-      background: var(--bg); box-shadow: var(--out);
-      border-radius: var(--r); overflow: hidden;
-    }
-    .panel-header {
-      padding: 1rem 1.3rem .6rem;
-      display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    }
-    .panel-header h3 { font-size: 14px; font-weight: 700; }
-    .panel-hint { font-size: 11px; color: var(--text3); }
-    .panel-body { padding: .8rem 1.3rem 1.3rem; }
-
-    .trigger-section {
-      background: var(--bg); box-shadow: var(--out);
-      border-radius: var(--r); padding: 1.4rem;
-      margin-bottom: 1.6rem;
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 1rem; flex-wrap: wrap;
-    }
-    .trigger-info h3 { font-size: 15px; margin-bottom: 4px; }
-    .trigger-info p { font-size: 13px; color: var(--text2); }
-    #trigger-btn { padding: 13px 28px; font-size: 14px; min-width: 180px; }
-    .trigger-result {
-      font-size: 13px; margin-top: 10px; padding: 9px 14px;
-      border-radius: 12px; display: none; box-shadow: var(--in-sm);
-    }
-    .trigger-result.success { color: var(--green-soft); }
-    .trigger-result.error { color: var(--red); }
-
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 1.6rem; }
-    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
-
-    .well {
-      background: var(--bg); box-shadow: var(--in-sm);
-      border-radius: 14px; padding: 12px 14px;
-    }
-    .mood-list, .feedback-list { display: flex; flex-direction: column; gap: 12px; max-height: 380px; overflow-y: auto; padding: 4px; }
-    .mood-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-    .mood-emoji { font-size: 20px; }
-    .mood-name { font-size: 14px; font-weight: 700; }
-    .mood-date { font-size: 11px; color: var(--text3); margin-left: auto; }
-    .mood-summary { font-size: 12px; color: var(--text2); line-height: 1.55; margin-bottom: 7px; }
-    .mood-tags { display: flex; flex-wrap: wrap; gap: 5px; }
-    .chip {
-      padding: 3px 10px; border-radius: 20px; font-size: 11px;
-      color: var(--text2); box-shadow: var(--in-sm); background: var(--bg);
-    }
-    .chip.green { color: var(--green-soft); }
-    .chip.blue { color: var(--blue); }
-    .chip.purple { color: var(--purple); }
-    .chip.yellow { color: var(--yellow); }
-
-    .feedback-top { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
-    .cycle-badge {
-      padding: 3px 11px; border-radius: 20px; font-size: 11px; font-weight: 800;
-      color: var(--green-soft); box-shadow: var(--in-sm);
-    }
-    .score-bar-wrap { flex: 1; border-radius: 6px; height: 9px; overflow: hidden; box-shadow: var(--in-sm); background: var(--bg2); }
-    .score-bar { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--green), var(--green-soft)); transition: width .6s; }
-    .score-bar.eng { background: linear-gradient(90deg, #3a7bd5, var(--blue)); }
-    .score-num { font-size: 12px; font-weight: 800; color: var(--green-soft); min-width: 30px; text-align: right; }
-    .score-num.blue { color: var(--blue); }
-    .feedback-analysis { font-size: 12px; color: var(--text2); line-height: 1.55; }
-    .feedback-meta { font-size: 11px; color: var(--text3); margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
-
-    .empty { text-align: center; padding: 2rem 1rem; color: var(--text3); font-size: 13px; }
-    .empty-icon { font-size: 30px; margin-bottom: 8px; }
-    .loading { text-align: center; padding: 2rem; color: var(--text3); font-size: 13px; }
-    .spinner {
-      width: 20px; height: 20px; border: 2px solid var(--bg2);
-      border-top-color: var(--green); border-radius: 50%;
-      animation: spin .8s linear infinite; margin: 0 auto 8px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .playlist-link {
-      display: inline-flex; align-items: center; gap: 6px;
-      color: var(--green-soft); font-size: 13px; text-decoration: none;
-      padding: 8px 16px; border-radius: 20px;
-      box-shadow: var(--out-sm); transition: all .15s;
-    }
-    .playlist-link:active { box-shadow: var(--in-sm); }
-
-    .pattern-list { display: flex; flex-direction: column; gap: 10px; padding: 4px; }
-    .pattern-item {
-      background: var(--bg); box-shadow: var(--in-sm);
-      border-radius: 12px; padding: 11px 14px; font-size: 12px;
-      color: var(--text2); line-height: 1.55;
-      border-left: 3px solid var(--green);
-    }
-    .adapt-badge {
-      padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
-      color: var(--green-soft); box-shadow: var(--in-sm);
-    }
-
-    .strategy-row { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
-    .strategy-item {
-      flex: 1; min-width: 130px;
-      background: var(--bg); box-shadow: var(--in-sm);
-      border-radius: 14px; padding: 12px 14px;
-    }
-    .strategy-item .k { font-size: 10.5px; color: var(--text3); text-transform: uppercase; letter-spacing: .8px; }
-    .strategy-item .v { font-size: 19px; font-weight: 800; margin-top: 3px; }
-    .strategy-item .v.green { color: var(--green-soft); }
-    .strategy-item .v.purple { color: var(--purple); }
-    .strategy-item .v.blue { color: var(--blue); }
-    .strategy-reason { font-size: 11.5px; color: var(--text2); margin-top: 10px; line-height: 1.5; }
-
-    .score-chart { width: 100%; height: 70px; margin-top: 6px; }
-    .chart-legend { display: flex; gap: 14px; font-size: 11px; color: var(--text2); margin-top: 6px; }
-    .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-
-    .archive-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .archive-table th {
-      text-align: left; padding: 8px 6px; color: var(--text3);
-      font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .archive-table td { padding: 8px 6px; color: var(--text2); border-bottom: 1px solid rgba(255,255,255,0.04); }
-    .archive-table tr:last-child td { border-bottom: none; }
-    .archive-wrap { max-height: 300px; overflow-y: auto; }
-    .td-disc { color: var(--purple); font-weight: 700; }
-    .td-eng { color: var(--blue); font-weight: 700; }
-
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
-  </style>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
@@ -256,9 +29,9 @@
       <input type="url" id="bot-url" placeholder="Bot URL (e.g. https://xyz.railway.app)" />
       <input type="password" id="api-secret" placeholder="API secret" />
     </div>
-    <div style="display:flex;gap:8px;align-items:center;">
+    <div class="setup-actions">
       <button class="btn btn-green" onclick="saveConfig()">Connect</button>
-      <span id="connect-msg" style="font-size:12px;color:var(--text2)"></span>
+      <span id="connect-msg"></span>
     </div>
   </div>
 </div>
@@ -273,12 +46,12 @@
     </div>
     <div class="stat-card">
       <div class="stat-label">Last Update</div>
-      <div class="stat-value" id="stat-last" style="font-size:15px;margin-top:4px">—</div>
+      <div class="stat-value small" id="stat-last">—</div>
       <div class="stat-sub" id="stat-last-relative">—</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">Current Mood</div>
-      <div class="stat-value" id="stat-mood" style="font-size:19px;margin-top:4px">—</div>
+      <div class="stat-value small" id="stat-mood">—</div>
       <div class="stat-sub" id="stat-energy">—</div>
     </div>
     <div class="stat-card">
@@ -298,13 +71,13 @@
     </div>
   </div>
 
-  <div class="panel" style="margin-bottom:1.6rem" id="score-trend-panel" hidden>
+  <div class="panel" id="score-trend-panel" hidden>
     <div class="panel-header"><h3>📈 Score Trend</h3><span class="panel-hint">AI score vs real listening score</span></div>
     <div class="panel-body">
       <svg class="score-chart" id="score-chart" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
       <div class="chart-legend">
-        <span><span class="legend-dot" style="background:var(--green)"></span>AI score</span>
-        <span><span class="legend-dot" style="background:var(--blue)"></span>Real score (engagement)</span>
+        <span><span class="legend-dot ai"></span>AI score</span>
+        <span><span class="legend-dot real"></span>Real score (engagement)</span>
       </div>
     </div>
   </div>
@@ -315,35 +88,28 @@
       <p>Refresh the playlist now without waiting 2 days. The bot analyses your listening history and picks new tracks.</p>
       <textarea id="user-note" maxlength="500" rows="2"
                 placeholder="Your request (optional): e.g. &quot;that was too gloomy, make the next one more upbeat&quot;"
-                style="width:100%;max-width:520px;margin-top:10px;padding:9px 11px;border-radius:8px;
-                       border:1px solid #333;background:#111;color:#eee;font-size:13px;
-                       font-family:inherit;resize:vertical;"></textarea>
-      <div style="display:flex;justify-content:space-between;align-items:center;
-                  max-width:520px;margin-top:4px;">
-        <span style="font-size:11px;color:#888;">This request reaches the curator as the highest priority signal.</span>
-        <span id="note-count" style="font-size:11px;color:#888;">0/500</span>
+                class="note-input"></textarea>
+      <div class="note-row">
+        <span class="note-hint">This request reaches the curator as the highest priority signal.</span>
+        <span id="note-count" class="note-hint">0/500</span>
       </div>
-      <div id="past-notes" style="margin-top:10px;max-width:520px;"></div>
+      <div id="past-notes"></div>
       <div class="trigger-result" id="trigger-result"></div>
     </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
-      <div style="display:flex;align-items:center;gap:8px;">
+    <div class="trigger-actions">
+      <div class="trigger-buttons">
         <button id="token-toggle" onclick="toggleTokenRow()" title="GitHub token setting"
-                style="background:none;border:1px solid #333;color:#888;border-radius:6px;
-                       padding:6px 10px;cursor:pointer;font-size:12px;">🔑</button>
+                class="token-toggle">🔑</button>
         <button class="btn btn-green" id="trigger-btn" onclick="triggerCycle()">▶ Update Now</button>
       </div>
-      <div id="token-row" style="display:none;flex-direction:column;gap:6px;align-items:flex-end;">
+      <div id="token-row" style="display:none">
         <input type="password" id="gh-token" placeholder="github_pat_..." autocomplete="off"
-               style="padding:7px 10px;border-radius:6px;border:1px solid #333;background:#111;
-                      color:#eee;font-size:12px;width:260px;" />
-        <div style="display:flex;gap:6px;">
-          <button onclick="saveToken()" style="padding:6px 12px;border-radius:6px;border:none;
-                  background:#1db954;color:#000;cursor:pointer;font-size:12px;">Save</button>
-          <button onclick="clearToken()" style="padding:6px 12px;border-radius:6px;border:1px solid #333;
-                  background:none;color:#888;cursor:pointer;font-size:12px;">Delete</button>
+               class="token-input" />
+        <div class="token-buttons">
+          <button onclick="saveToken()" class="token-save">Save</button>
+          <button onclick="clearToken()" class="token-clear">Delete</button>
         </div>
-        <div style="font-size:11px;color:#888;max-width:280px;text-align:right;line-height:1.5">
+        <div class="token-help">
           Fine-grained PAT &middot; only <b>your repository</b> &middot;
           a single permission <b>Actions: Read and write</b>.<br>
           The token is stored only in this browser, never written into the page source.
@@ -353,7 +119,7 @@
     </div>
   </div>
 
-  <div class="panel" style="margin-bottom:1.6rem">
+  <div class="panel">
     <div class="panel-header">
       <h3>🎛️ Bot Strategy</h3>
       <span class="panel-hint">Tunes itself from listening data</span>
@@ -422,7 +188,7 @@
     <div class="panel">
       <div class="panel-header">
         <h3>📁 Playlist Archive</h3>
-        <button class="btn btn-outline" style="padding:7px 14px;font-size:11px" onclick="downloadExcel()">⬇ Download Excel</button>
+        <button class="btn btn-outline small" onclick="downloadExcel()">⬇ Download Excel</button>
       </div>
       <div class="panel-body">
         <div class="archive-wrap" id="archive-wrap">
@@ -607,7 +373,7 @@
       return;
     }
     let html = patterns.map(p => `<div class="pattern-item">${p}</div>`).join('');
-    if (advice) html += `<div class="pattern-item" style="border-left-color:var(--yellow)">💡 ${advice}</div>`;
+    if (advice) html += `<div class="pattern-item advice">💡 ${advice}</div>`;
     el.innerHTML = html;
   }
 
@@ -710,8 +476,8 @@
           <span class="score-num">${f.score?.toFixed(1)}</span>
         </div>
         ${hasEng ? `
-        <div class="feedback-top" style="margin-top:-2px">
-          <span class="chip blue" style="font-size:10px">real</span>
+        <div class="feedback-top">
+          <span class="chip blue small">real</span>
           <div class="score-bar-wrap"><div class="score-bar eng" style="width:${(f.engagement_score/10)*100}%"></div></div>
           <span class="score-num blue">${f.engagement_score.toFixed(1)}</span>
         </div>` : ''}
@@ -758,11 +524,10 @@
     const recent = (notes || []).slice(-3).reverse();
     if (!recent.length) { wrap.innerHTML = ''; return; }
     wrap.innerHTML =
-      '<div style="font-size:11px;color:#888;margin-bottom:5px;">Your recent requests (the curator still takes these into account):</div>' +
+      '<div class="past-notes-title">Your recent requests (the curator still takes these into account):</div>' +
       recent.map(n => `
-        <div style="font-size:12px;color:#bbb;background:#111;border-left:2px solid #1db954;
-                    padding:6px 10px;border-radius:0 6px 6px 0;margin-bottom:4px;">
-          <span style="color:#666;">#${n.cycle}</span> ${escapeHtml(String(n.note || '').slice(0, 200))}
+        <div class="past-note">
+          <span class="past-note-cycle">#${n.cycle}</span> ${escapeHtml(String(n.note || '').slice(0, 200))}
         </div>`).join('');
   }
 
