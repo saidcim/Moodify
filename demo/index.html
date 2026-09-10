@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moodify Demo</title>
+  <link rel="stylesheet" href="../style.css" />
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <span class="logo">🎵</span>
+    <div>
+      <h1>Moodify</h1>
+      <div class="header-sub">AI-powered dynamic playlist manager</div>
+    </div>
+  </div>
+  <div class="status-pill">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Demo</span>
+  </div>
+</div>
+
+<div id="setup-banner">
+  <h3>⚙️ Configure Bot Connection</h3>
+  <div class="setup-form">
+    <div class="setup-row">
+      <input type="url" id="bot-url" placeholder="Bot URL (e.g. https://xyz.railway.app)" />
+      <input type="password" id="api-secret" placeholder="API secret" />
+    </div>
+    <div class="setup-actions">
+      <button class="btn btn-green" onclick="saveConfig()">Connect</button>
+      <span id="connect-msg"></span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="demo-note">
+    <b>This is a demo.</b> Everything below is made-up sample data loaded from
+    <code>demo_state.json</code>. It is not connected to any Spotify account and the
+    buttons do nothing. To run it for real, see the README in this repository.
+  </div>
+</div>
+
+<div class="main" id="main-content" style="display:none">
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Total Cycles</div>
+      <div class="stat-value" id="stat-cycle">—</div>
+      <div class="stat-sub">updates</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Last Update</div>
+      <div class="stat-value small" id="stat-last">—</div>
+      <div class="stat-sub" id="stat-last-relative">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Current Mood</div>
+      <div class="stat-value small" id="stat-mood">—</div>
+      <div class="stat-sub" id="stat-energy">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">AI Score</div>
+      <div class="stat-value" id="stat-score">—</div>
+      <div class="stat-sub">/ 10 · AI self-assessment</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Real Score</div>
+      <div class="stat-value blue" id="stat-engagement">—</div>
+      <div class="stat-sub">/ 10 · from listening data</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Discovery</div>
+      <div class="stat-value purple" id="stat-discovery">—</div>
+      <div class="stat-sub" id="stat-discovery-sub">new tracks / playlist</div>
+    </div>
+  </div>
+
+  <div class="panel" id="score-trend-panel" hidden>
+    <div class="panel-header"><h3>📈 Score Trend</h3><span class="panel-hint">AI score vs real listening score</span></div>
+    <div class="panel-body">
+      <svg class="score-chart" id="score-chart" viewBox="0 0 300 70" preserveAspectRatio="none"></svg>
+      <div class="chart-legend">
+        <span><span class="legend-dot ai"></span>AI score</span>
+        <span><span class="legend-dot real"></span>Real score (engagement)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="trigger-section">
+    <div class="trigger-info">
+      <h3>🔄 Manual Update</h3>
+      <p>Refresh the playlist now without waiting 2 days. The bot analyses your listening history and picks new tracks.</p>
+      <textarea id="user-note" maxlength="500" rows="2"
+                placeholder="Your request (optional): e.g. &quot;that was too gloomy, make the next one more upbeat&quot;"
+                class="note-input"></textarea>
+      <div class="note-row">
+        <span class="note-hint">This request reaches the curator as the highest priority signal.</span>
+        <span id="note-count" class="note-hint">0/500</span>
+      </div>
+      <div id="past-notes"></div>
+      <div class="trigger-result" id="trigger-result"></div>
+    </div>
+    <div class="trigger-actions">
+      <div class="trigger-buttons">
+        <button class="btn btn-green" id="trigger-btn" onclick="triggerCycle()">▶ Update Now</button>
+      </div>
+      <a href="#" id="playlist-link" class="playlist-link" target="_blank" style="display:none">🎵 Open Playlist</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>🎛️ Bot Strategy</h3>
+      <span class="panel-hint">Tunes itself from listening data</span>
+    </div>
+    <div class="panel-body">
+      <div class="strategy-row">
+        <div class="strategy-item">
+          <div class="k">Carry-over Limit</div>
+          <div class="v green" id="strat-carry">—</div>
+          <div class="stat-sub">old tracks / cycle</div>
+        </div>
+        <div class="strategy-item">
+          <div class="k">Discovery Quota</div>
+          <div class="v purple" id="strat-discovery">—</div>
+          <div class="stat-sub">never-played tracks</div>
+        </div>
+        <div class="strategy-item">
+          <div class="k">Play Counter</div>
+          <div class="v blue" id="strat-plays">—</div>
+          <div class="stat-sub">plays collected this cycle</div>
+        </div>
+      </div>
+      <div class="strategy-reason" id="strat-reason"></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>😌 Mood History</h3>
+        <span class="panel-hint">Last 3 days of listening analysis</span>
+      </div>
+      <div class="panel-body">
+        <div class="mood-list" id="mood-list">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>📊 Playlist History</h3>
+        <span class="panel-hint">AI score &amp; real score</span>
+      </div>
+      <div class="panel-body">
+        <div class="feedback-list" id="feedback-list">
+          <div class="loading"><div class="spinner"></div>Loading...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <h3>🧠 Bot Learnings</h3>
+        <span class="adapt-badge" id="adapt-badge">—</span>
+      </div>
+      <div class="panel-body">
+        <div class="pattern-list" id="pattern-list">
+          <div class="empty"><div class="empty-icon">🔍</div>The bot has not collected learning data yet.<br>Patterns will appear here after 3-4 cycles.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h3>📁 Playlist Archive</h3>
+        <button class="btn btn-outline small" onclick="downloadExcel()">⬇ Download Excel</button>
+      </div>
+      <div class="panel-body">
+        <div class="archive-wrap" id="archive-wrap">
+          <div class="empty"><div class="empty-icon">📂</div>No archive yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let refreshTimer = null;
+
+  function normalizeBotUrl(raw) {
+    if (!raw) return '';
+    let url = raw.trim().replace(/\/$/, '');
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    return url;
+  }
+
+  function getBotUrlInfo(url) {
+    try {
+      const normalized = normalizeBotUrl(url);
+      const u = new URL(normalized);
+      return { valid: true, host: u.hostname, origin: u.origin, normalized };
+    } catch {
+      return { valid: false, host: 'invalid-url', origin: '', normalized: '' };
+    }
+  }
+
+  function loadConfig() {
+    document.getElementById('user-note')?.addEventListener('input', updateNoteCount);
+    document.getElementById('setup-banner').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+    fetchStatus();
+    refreshTimer = setInterval(fetchStatus, 120000);
+  }
+
+  function isLikelyFrontendUrl(url) {
+    const info = getBotUrlInfo(url);
+    if (!info.valid) return false;
+    if (info.origin === window.location.origin) return true;
+    if (info.host.includes('vercel.app')) return true;
+    return false;
+  }
+
+  function saveConfig() {
+    loadConfig();
+  }
+
+  async function fetchState() {
+    const res = await fetch('./demo_state.json', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`demo_state.json HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function fetchStatus() {
+    const dot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    try {
+      const state = await fetchState();
+      const data = {
+        cycle: state.cycle || 0,
+        last_update: state.last_update || null,
+        playlist_id: state.playlist_id || '',
+        is_running: false,
+        user_notes: state.user_notes || [],
+        feedback_history: state.feedback_history || [],
+        mood_history: state.mood_history || [],
+        user_profile: state.user_profile || {},
+        dynamic_config: state.dynamic_config || {},
+        cumulative_plays: state.cumulative_plays || {},
+        playlist_archive_summary: state.playlist_archive || []
+      };
+      renderStatus(data);
+      dot.className = 'status-dot online';
+      statusText.textContent = 'Demo data';
+    } catch (e) {
+      dot.className = 'status-dot';
+      statusText.textContent = 'Connection error';
+      console.error(e);
+    }
+  }
+
+  function renderStatus(data) {
+    document.getElementById('stat-cycle').textContent = data.cycle || 0;
+    renderPastNotes(data.user_notes);
+
+    if (data.last_update) {
+      const d = new Date(data.last_update);
+      document.getElementById('stat-last').textContent = d.toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      document.getElementById('stat-last-relative').textContent = timeAgo(d);
+    }
+
+    const moods = data.mood_history || [];
+    if (moods.length > 0) {
+      const last = moods[moods.length - 1];
+      document.getElementById('stat-mood').textContent = `${last.mood_emoji || ''} ${last.mood || '—'}`;
+      document.getElementById('stat-energy').textContent = `Energy: ${last.energy_level || '—'}`;
+    }
+
+    const feedbacks = data.feedback_history || [];
+    if (feedbacks.length > 0) {
+      const last = feedbacks[feedbacks.length - 1];
+      document.getElementById('stat-score').textContent = last.score?.toFixed(1) || '—';
+      document.getElementById('stat-engagement').textContent =
+        (last.engagement_score !== undefined && last.engagement_score !== null)
+          ? last.engagement_score.toFixed(1) : '—';
+    }
+
+    const archive = data.playlist_archive_summary || [];
+    const lastA = archive[archive.length - 1] || {};
+    if (lastA.discovery_count !== undefined) {
+      document.getElementById('stat-discovery').textContent = lastA.discovery_count;
+      document.getElementById('stat-discovery-sub').textContent = 'new tracks in this playlist';
+    }
+
+    const dyn = data.dynamic_config || {};
+    if (dyn.carry_over !== undefined) {
+      document.getElementById('strat-carry').textContent = dyn.carry_over;
+    }
+    document.getElementById('strat-discovery').textContent =
+      lastA.discovery_count !== undefined ? lastA.discovery_count : '—';
+    const cum = data.cumulative_plays;
+    document.getElementById('strat-plays').textContent =
+      cum ? Object.values(cum).reduce((a, b) => a + b, 0) : '—';
+    document.getElementById('strat-reason').textContent =
+      dyn.tune_reason ? `💬 Last tuning reason: ${dyn.tune_reason}` : '';
+
+    if (data.playlist_id) {
+      const link = document.getElementById('playlist-link');
+      link.href = `https://open.spotify.com/playlist/${data.playlist_id}`;
+      link.style.display = 'inline-flex';
+    }
+
+    renderMoodHistory(moods.slice().reverse());
+    renderFeedbackHistory(feedbacks.slice().reverse());
+
+    const profile = data.user_profile || {};
+    const metrics = profile.adaptation_metrics || {};
+    const improvement = metrics.improvement_delta;
+    const confidence = metrics.confidence;
+    if (improvement !== undefined && data.cycle > 0) {
+      document.getElementById('adapt-badge').textContent =
+        `Confidence ${Math.round((confidence || 0) * 100)}% · Improvement ${improvement >= 0 ? '+' : ''}${improvement.toFixed(1)}`;
+    }
+
+    renderPatterns(profile.learned_patterns || [], profile.next_advice || '');
+    renderArchive(archive);
+    renderScoreChart(feedbacks);
+  }
+
+  function renderPatterns(patterns, advice) {
+    const el = document.getElementById('pattern-list');
+    if (!patterns.length && !advice) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>The bot has not collected learning data yet.<br>Patterns will appear here after 3-4 cycles.</div>`;
+      return;
+    }
+    let html = patterns.map(p => `<div class="pattern-item">${p}</div>`).join('');
+    if (advice) html += `<div class="pattern-item advice">💡 ${advice}</div>`;
+    el.innerHTML = html;
+  }
+
+  function renderArchive(archive) {
+    const el = document.getElementById('archive-wrap');
+    if (!archive.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📂</div>No archive yet.</div>`;
+      return;
+    }
+    const rows = archive.slice().reverse().map(a => `
+      <tr>
+        <td>#${a.cycle}</td>
+        <td>${formatDate(a.archived_at)}</td>
+        <td>${a.mood || '—'}</td>
+        <td>${a.score?.toFixed(1) || '—'}</td>
+        <td class="td-eng">${(a.engagement_score !== undefined && a.engagement_score !== null) ? a.engagement_score.toFixed(1) : '—'}</td>
+        <td class="td-disc">${a.discovery_count !== undefined ? a.discovery_count : '—'}</td>
+        <td>${a.avg_plays?.toFixed(1) || 0}</td>
+      </tr>
+    `).join('');
+    el.innerHTML = `<table class="archive-table">
+      <thead><tr><th>Cycle</th><th>Date</th><th>Mood</th><th>AI</th><th>Real</th><th>Discovery</th><th>Avg Plays</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+
+  function renderScoreChart(feedbacks) {
+    const panel = document.getElementById('score-trend-panel');
+    const svg = document.getElementById('score-chart');
+    if (!feedbacks || feedbacks.length < 2) { panel.hidden = true; return; }
+    panel.hidden = false;
+
+    const w = 300, h = 70, pad = 10;
+    const aiVals = feedbacks.map(f => (f.score !== undefined ? f.score : null));
+    const engVals = feedbacks.map(f => (f.engagement_score !== undefined ? f.engagement_score : null));
+    const allVals = aiVals.concat(engVals).filter(s => s != null);
+    if (!allVals.length) { panel.hidden = true; return; }
+    const min = Math.min(...allVals) - 0.5;
+    const max = Math.max(...allVals) + 0.5;
+    const range = max - min || 1;
+    const n = feedbacks.length;
+    const xAt = i => pad + (i / Math.max(n - 1, 1)) * (w - 2 * pad);
+    const yAt = s => h - pad - ((s - min) / range) * (h - 2 * pad);
+
+    const line = (vals, color) => {
+      const pts = [];
+      vals.forEach((s, i) => { if (s != null) pts.push(`${xAt(i)},${yAt(s)}`); });
+      if (pts.length < 2) return '';
+      const dots = vals.map((s, i) => s != null ? `<circle cx="${xAt(i)}" cy="${yAt(s)}" r="3" fill="${color}"/>` : '').join('');
+      return `<polyline points="${pts.join(' ')}" fill="none" stroke="${color}" stroke-width="2"/>${dots}`;
+    };
+
+    svg.innerHTML = line(aiVals, '#1DB954') + line(engVals, '#5aa7ff');
+  }
+
+  function downloadExcel() {
+    showTrigger('success', 'Demo only. In a real deployment the Excel history lives in the repository.');
+  }
+
+  function renderMoodHistory(moods) {
+    const el = document.getElementById('mood-list');
+    if (!moods.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">😶</div>No mood data yet.<br>It will appear here after the first cycle.</div>`;
+      return;
+    }
+    el.innerHTML = moods.map(m => `
+      <div class="well">
+        <div class="mood-top">
+          <span class="mood-emoji">${m.mood_emoji || '🎵'}</span>
+          <span class="mood-name">${m.mood || '—'}</span>
+          <span class="chip ${m.energy_level === 'high' ? 'green' : m.energy_level === 'low' ? 'blue' : 'yellow'}">${m.energy_level || 'medium'}</span>
+          <span class="mood-date">${formatDate(m.date)} · ${m.trigger || 'Automatic'}</span>
+        </div>
+        <div class="mood-summary">${m.summary || ''}</div>
+        <div class="mood-tags">
+          ${(m.dominant_genres || []).map(g => `<span class="chip">${g}</span>`).join('')}
+          ${(m.top_artists_this_period || []).map(a => `<span class="chip green">${a}</span>`).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderFeedbackHistory(feedbacks) {
+    const el = document.getElementById('feedback-list');
+    if (!feedbacks.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>No playlist history yet.<br>It will appear after the first update.</div>`;
+      return;
+    }
+    el.innerHTML = feedbacks.map(f => {
+      const hasEng = f.engagement_score !== undefined && f.engagement_score !== null;
+      return `
+      <div class="well">
+        <div class="feedback-top">
+          <span class="cycle-badge">#${f.cycle}</span>
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${(f.score/10)*100}%"></div></div>
+          <span class="score-num">${f.score?.toFixed(1)}</span>
+        </div>
+        ${hasEng ? `
+        <div class="feedback-top">
+          <span class="chip blue small">real</span>
+          <div class="score-bar-wrap"><div class="score-bar eng" style="width:${(f.engagement_score/10)*100}%"></div></div>
+          <span class="score-num blue">${f.engagement_score.toFixed(1)}</span>
+        </div>` : ''}
+        <div class="feedback-analysis">${f.analysis || '—'}</div>
+        <div class="feedback-meta">
+          <span>Avg plays: ${f.avg_plays?.toFixed(1) || 0}</span>
+          <span>${formatDate(f.date)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateNoteCount() {
+    const el = document.getElementById('user-note');
+    const out = document.getElementById('note-count');
+    if (el && out) out.textContent = `${el.value.length}/500`;
+  }
+
+  function renderPastNotes(notes) {
+    const wrap = document.getElementById('past-notes');
+    if (!wrap) return;
+    const recent = (notes || []).slice(-3).reverse();
+    if (!recent.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML =
+      '<div class="past-notes-title">Your recent requests (the curator still takes these into account):</div>' +
+      recent.map(n => `
+        <div class="past-note">
+          <span class="past-note-cycle">#${n.cycle}</span> ${escapeHtml(String(n.note || '').slice(0, 200))}
+        </div>`).join('');
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function showTrigger(kind, text) {
+    const result = document.getElementById('trigger-result');
+    result.className = `trigger-result ${kind}`;
+    result.textContent = text;
+    result.style.display = 'block';
+  }
+
+  async function triggerCycle() {
+    showTrigger('success', 'Demo only. In a real deployment this dispatches the ' +
+                           'GitHub Actions workflow and the note above is passed to the curator.');
+  }
+
+  function timeAgo(date) {
+    const diff = Math.floor((Date.now() - date) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff/60)} minutes ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)} hours ago`;
+    return `${Math.floor(diff/86400)} days ago`;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-GB', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  }
+
+  loadConfig();
+</script>
+</body>
+</html>
